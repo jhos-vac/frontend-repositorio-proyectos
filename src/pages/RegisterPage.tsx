@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { AuthLayout } from "@/components/layout/AuthLayout"
 import { createPortal } from "react-dom" // Añadido para las alertas flotantes
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -151,8 +152,8 @@ const RegisterPage = () => {
   }
 
   const PasswordRequirement = ({ met, text }: { met: boolean, text: string }) => (
-    <div className={`flex items-center space-x-2 text-xs ${met ? "text-green-400 font-medium" : "text-gray-500"}`}>
-      {met ? <Check size={14} /> : <div className="w-3.5 h-3.5 rounded-full border border-gray-500" />}
+    <div className={`flex items-center space-x-2 text-xs ${met ? "text-green-600 font-medium" : "text-slate-500"}`}>
+      {met ? <Check size={14} /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300" />}
       <span>{text}</span>
     </div>
   );
@@ -166,10 +167,10 @@ const RegisterPage = () => {
           {success && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-green-600 border-green-500 text-white shadow-2xl flex items-center gap-3 pr-6">
-                <CheckCircle2 className="h-6 w-6 text-white" />
+                <CheckCircle2 className="h-6 w-6 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-lg">Éxito</AlertTitle>
-                  <AlertDescription className="text-white/90 font-medium text-base">Registrado correctamente</AlertDescription>
+                  <AlertDescription className="text-white font-medium text-base">Registrado correctamente</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -178,10 +179,10 @@ const RegisterPage = () => {
           {errorAlert && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-red-700 text-white border-none shadow-2xl flex items-center gap-3 pr-6 py-2">
-                <AlertCircleIcon className="h-4 w-4 text-white" />
+                <AlertCircleIcon className="h-4 w-4 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-xs">Error</AlertTitle>
-                  <AlertDescription className="text-white/90 text-[10px]">{errorMessage}</AlertDescription>
+                  <AlertDescription className="text-white text-[10px]">{errorMessage}</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -210,10 +211,11 @@ const RegisterPage = () => {
         document.body
       )}
 
-      <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-        <form onSubmit={handleRegister} className="w-full max-w-sm p-8 bg-gray-800 rounded-2xl shadow-lg space-y-5 text-gray-100">
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-bold text-white">Crear Cuenta</h1>
+      <AuthLayout>
+        <form onSubmit={handleRegister} className="w-full space-y-5 text-slate-900">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Crear cuenta</h1>
+            <p className="text-sm text-slate-500">Regístrate con tu correo institucional.</p>
           </div>
 
           {/* NOMBRE */}
@@ -224,7 +226,7 @@ const RegisterPage = () => {
               placeholder="Nombre"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-gray-700 border-gray-600 text-white placeholder-gray-500 focus:border-cyan-400"
+              className="bg-slate-100 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-brand-600"
             />
           </div>
 
@@ -240,11 +242,11 @@ const RegisterPage = () => {
                 setEmail(e.target.value);
                 if(emailError) setEmailError(false); 
               }}
-              className={`bg-gray-700 text-white placeholder-gray-500 focus:border-cyan-400 ${
-                emailError ? "border-red-500 ring-1 ring-red-500" : "border-gray-600"
+              className={`bg-white text-slate-900 placeholder-slate-400 focus:border-brand-600 ${
+                emailError ? "border-red-500 ring-1 ring-red-500" : "border-slate-300"
               }`}
             />
-            {emailError && <p className="text-[11px] text-red-500 font-bold ml-1">{errorMessage}</p>}
+            {emailError && <p className="text-[11px] text-red-600 font-bold ml-1">{errorMessage}</p>}
           </div>
 
           {/* CARRERA */}
@@ -252,7 +254,7 @@ const RegisterPage = () => {
             <Label>Carrera Académica</Label>
             <select 
               required
-              className="w-full p-2 rounded-md bg-gray-700 text-white border border-gray-600 focus:border-cyan-400 focus:outline-none text-sm" 
+              className="w-full p-2 rounded-md bg-slate-100 text-slate-900 border border-slate-300 focus:border-brand-600 focus:outline-none text-sm" 
               value={careerId} 
               onChange={(e) => setCareerId(e.target.value)}
             >
@@ -273,12 +275,12 @@ const RegisterPage = () => {
                 placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`bg-gray-700 border-gray-600 text-white pr-10 focus:border-cyan-400 ${validationError ? "border-red-500" : ""}`}
+                className={`bg-slate-100 border-slate-300 text-slate-900 pr-10 focus:border-brand-600 ${validationError ? "border-red-500" : ""}`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-cyan-400"
+                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-brand-700"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -296,21 +298,21 @@ const RegisterPage = () => {
                 placeholder="Repite la contraseña"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className={`bg-gray-700 border-gray-600 text-white pr-10 focus:border-cyan-400 ${
+                className={`bg-white border-slate-300 text-slate-900 pr-10 focus:border-brand-600 ${
                     matchError || (confirmPassword && !passwordsMatch) ? "border-red-500 focus:border-red-500" : ""
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-cyan-400"
+                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-brand-700"
                 tabIndex={-1}
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
 
-            <div className="mt-3 space-y-1.5 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+            <div className="mt-3 space-y-1.5 bg-white p-3 rounded-lg border border-slate-200">
               <div className="grid grid-cols-2 gap-x-2 gap-y-1">
                 <PasswordRequirement met={hasMinLength} text="Mín. 6 caracteres" />
                 <PasswordRequirement met={hasUpperCase} text="Mayúscula" />
@@ -322,18 +324,18 @@ const RegisterPage = () => {
             </div>
           </div>
 
-          <Button type="submit" className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-6 mt-4" disabled={loading || success}>
+          <Button type="submit" className="w-full bg-brand-700 hover:bg-brand-600 text-white py-6 mt-4" disabled={loading || success}>
             {loading ? "Procesando registro..." : success ? "¡Registrado!" : "Registrarse"}
           </Button>
           
-          <p className="text-center text-sm text-gray-400">
+          <p className="text-center text-sm text-slate-500">
             ¿Ya tienes cuenta?{" "}
-            <Link to="/login" className="text-cyan-400 hover:underline font-medium">
+            <Link to="/login" className="text-brand-700 hover:underline font-medium">
               Inicia Sesión
             </Link>
           </p>
         </form>
-      </div>
+      </AuthLayout>
 
       <LoadingOverlay isVisible={loading} message="Creando cuenta..." />
     </>

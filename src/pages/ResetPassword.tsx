@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AuthLayout } from "@/components/layout/AuthLayout"
 import { useParams, Link } from "react-router-dom";
 import api from "@/api/axios";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,8 @@ import { Lock, Loader2, Eye, EyeOff, CheckCircle, XCircle, ArrowRight, Check, Al
 
 // Componente visual para los ítems de la lista
 const ValidationItem = ({ fulfilled, text }: { fulfilled: boolean; text: string }) => (
-  <div className={`flex items-center space-x-2 text-xs transition-colors duration-200 ${fulfilled ? "text-green-400 font-medium" : "text-gray-500"}`}>
-    {fulfilled ? <Check className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-gray-600" />}
+  <div className={`flex items-center space-x-2 text-xs transition-colors duration-200 ${fulfilled ? "text-green-600 font-medium" : "text-slate-500"}`}>
+    {fulfilled ? <Check className="w-3.5 h-3.5" /> : <div className="w-3.5 h-3.5 rounded-full border border-slate-300" />}
     <span>{text}</span>
   </div>
 );
@@ -81,10 +82,10 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
-      <Card className="w-full max-w-md bg-gray-800 border-gray-700 shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-white text-2xl text-center">
+    <AuthLayout>
+      <Card className="w-full border-0 bg-transparent p-0 shadow-none text-slate-900">
+        <CardHeader className="px-0">
+          <CardTitle className="text-slate-900 text-2xl text-left">
             {success ? "¡Éxito!" : "Restablecer Contraseña"}
           </CardTitle>
         </CardHeader>
@@ -93,13 +94,13 @@ export default function ResetPassword() {
             // --- PANTALLA DE ÉXITO ---
             <div className="text-center space-y-6 py-4 animate-in fade-in zoom-in duration-300">
               <div className="flex justify-center">
-                <div className="bg-green-500/20 p-4 rounded-full border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]">
-                    <CheckCircle className="h-16 w-16 text-green-500" />
+                <div className="bg-green-50 p-4 rounded-full border-2 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+                    <CheckCircle className="h-16 w-16 text-green-600" />
                 </div>
               </div>
               <div className="space-y-2">
-                <h3 className="text-green-400 text-xl font-bold">Contraseña Restablecida</h3>
-                <p className="text-gray-300">Tu contraseña ha sido actualizada correctamente.</p>
+                <h3 className="text-green-600 text-xl font-bold">Contraseña Restablecida</h3>
+                <p className="text-slate-400">Tu contraseña ha sido actualizada correctamente.</p>
               </div>
               <Button asChild className="w-full bg-green-600 hover:bg-green-700 h-12 text-lg font-bold shadow-lg shadow-green-900/20">
                 <Link to="/login">
@@ -115,11 +116,11 @@ export default function ResetPassword() {
                 
                 {/* 1. INPUT NUEVA CONTRASEÑA */}
                 <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 group-focus-within:text-cyan-500 transition-colors" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-brand-600 transition-colors" />
                   <Input 
                     type={showPass ? "text" : "password"} 
                     placeholder="Nueva contraseña" 
-                    className="pl-10 pr-10 bg-gray-900 border-gray-600 text-white focus:border-cyan-500 transition-all h-11"
+                    className="pl-10 pr-10 bg-white border-slate-300 text-slate-900 focus:border-brand-600 transition-all h-11"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -127,7 +128,7 @@ export default function ResetPassword() {
                   <button 
                     type="button" 
                     onClick={() => setShowPass(!showPass)} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 p-1 transition-colors"
                     tabIndex={-1}
                   >
                     {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -136,11 +137,11 @@ export default function ResetPassword() {
 
                 {/* 2. INPUT CONFIRMAR CONTRASEÑA */}
                 <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500 group-focus-within:text-cyan-500 transition-colors" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500 group-focus-within:text-brand-600 transition-colors" />
                   <Input 
                     type={showConfirmPass ? "text" : "password"} 
                     placeholder="Confirmar contraseña" 
-                    className={`pl-10 pr-10 bg-gray-900 border-gray-600 text-white focus:border-cyan-500 transition-all h-11 ${
+                    className={`pl-10 pr-10 bg-white border-slate-300 text-slate-900 focus:border-brand-600 transition-all h-11 ${
                       confirmPassword && !validations.match ? "border-red-500 focus:border-red-500" : ""
                     }`}
                     value={confirmPassword}
@@ -150,7 +151,7 @@ export default function ResetPassword() {
                   <button 
                     type="button" 
                     onClick={() => setShowConfirmPass(!showConfirmPass)} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 p-1 transition-colors"
                     tabIndex={-1}
                   >
                     {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -158,8 +159,8 @@ export default function ResetPassword() {
                 </div>
 
                 {/* 3. VERIFICADOR VISUAL (Ahora incluye "Coinciden") */}
-                <div className="bg-gray-900/50 p-3 rounded-md border border-gray-700 space-y-2">
-                   <p className="text-xs text-gray-400 font-semibold mb-1 flex items-center gap-2">
+                <div className="bg-white p-3 rounded-md border border-slate-200 space-y-2">
+                   <p className="text-xs text-slate-500 font-semibold mb-1 flex items-center gap-2">
                      <AlertCircle className="w-3 h-3" /> Requisitos de seguridad:
                    </p>
                    <div className="grid grid-cols-2 gap-y-1 gap-x-2">
@@ -176,9 +177,9 @@ export default function ResetPassword() {
               </div>
 
               {error && (
-                <div className="bg-red-900/30 p-3 rounded-md border border-red-800 flex items-center gap-2 justify-center">
-                    <XCircle className="w-4 h-4 text-red-400" />
-                    <p className="text-red-400 text-sm font-medium">{error}</p>
+                <div className="bg-red-50 p-3 rounded-md border border-red-200 flex items-center gap-2 justify-center">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    <p className="text-red-600 text-sm font-medium">{error}</p>
                 </div>
               )}
               
@@ -189,7 +190,7 @@ export default function ResetPassword() {
               */}
               <Button 
                 type="submit" 
-                className="w-full bg-cyan-600 hover:bg-cyan-700 h-11 text-lg font-medium shadow-lg shadow-cyan-900/20 disabled:opacity-50 disabled:cursor-not-allowed" 
+                className="w-full bg-brand-700 hover:bg-brand-800 h-11 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed" 
                 disabled={loading}
               >
                 {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : "Cambiar Contraseña"}
@@ -198,6 +199,6 @@ export default function ResetPassword() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AuthLayout>
   );
 }

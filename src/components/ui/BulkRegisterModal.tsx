@@ -114,10 +114,10 @@ export function BulkRegisterModal() {
           {success && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-green-600 border-green-500 text-white shadow-2xl flex items-center gap-3 pr-6">
-                <CheckCircle2 className="h-6 w-6 text-white" />
+                <CheckCircle2 className="h-6 w-6 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-lg">Éxito</AlertTitle>
-                  <AlertDescription className="text-white/90 font-medium text-base">Carga completada.</AlertDescription>
+                  <AlertDescription className="text-white font-medium text-base">Carga completada.</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -126,10 +126,10 @@ export function BulkRegisterModal() {
           {errorAlert && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-red-600 border-red-500 text-white shadow-2xl flex items-center gap-3 pr-6 py-2">
-                <AlertCircle className="h-4 w-4 text-white" />
+                <AlertCircle className="h-4 w-4 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-xs">Error en Carga</AlertTitle>
-                  <AlertDescription className="text-white/90 text-[10px] max-w-xs">{errorMessage}</AlertDescription>
+                  <AlertDescription className="text-white text-[10px] max-w-xs">{errorMessage}</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -141,25 +141,25 @@ export function BulkRegisterModal() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" className="w-full justify-start text-emerald-400 hover:text-emerald-300 hover:bg-emerald-950/30 gap-3 cursor-pointer mt-1">
+          <Button variant="ghost" className="w-full justify-start h-10 rounded-lg font-normal text-blue-100 hover:bg-white/10 hover:text-white gap-3 cursor-pointer">
             <UploadCloud className="w-5 h-5" />
             <span className="font-medium">Carga de Docentes  (Archivo)</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="bg-gray-800 border-gray-700 text-white sm:max-w-md">
+        <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-emerald-400 flex items-center gap-2 text-xl font-bold">
+            <DialogTitle className="text-emerald-600 flex items-center gap-2 text-xl font-bold">
                <FileSpreadsheet className="w-6 h-6" /> Registro de Docentes
             </DialogTitle>
-            <DialogDescription className="text-gray-400 text-xs">
+            <DialogDescription className="text-slate-500 text-xs">
               Sube un archivo con columnas: <b>nombre, correo, password, carrera</b> (nombre exacto).
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-600 rounded-xl p-10 hover:border-emerald-500 transition-colors bg-gray-900/50 group mt-4">
+          <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-10 hover:border-emerald-500 transition-colors bg-white group mt-4">
             <input type="file" accept=".xlsx, .xls, .json" onChange={handleFileUpload} className="hidden" id="bulk-file-name" />
             <label htmlFor="bulk-file-name" className="flex flex-col items-center cursor-pointer w-full text-center">
-              <UploadCloud className="w-14 h-14 text-gray-500 group-hover:text-emerald-400 mb-3 transition-colors" />
-              <p className="text-sm font-semibold text-gray-200">Subir Archivo</p>
+              <UploadCloud className="w-14 h-14 text-slate-500 group-hover:text-emerald-600 mb-3 transition-colors" />
+              <p className="text-sm font-semibold text-slate-800">Subir Archivo</p>
             </label>
           </div>
         </DialogContent>

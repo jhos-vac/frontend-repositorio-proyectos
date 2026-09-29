@@ -53,30 +53,30 @@ export function CreatePeriodModal({ onSuccess }: Props) {
           type="button" 
           variant="outline" 
           size="sm" 
-          className="h-8 px-3 text-cyan-400 border-cyan-800 bg-cyan-950/30 hover:bg-cyan-900 hover:text-cyan-300 text-xs font-bold flex items-center gap-1"
+          className="h-8 px-3 text-brand-700 border-brand-200 bg-brand-50 hover:bg-brand-50 hover:text-brand-700 text-xs font-bold flex items-center gap-1"
         >
           <Plus className="w-3 h-3" /> Nuevo Periodo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px] bg-gray-800 text-white border-gray-700">
+      <DialogContent className="sm:max-w-[400px] bg-slate-50 text-slate-900 border-slate-200">
         <DialogHeader>
-          <DialogTitle className="text-cyan-400">Nuevo Periodo Académico</DialogTitle>
-          <DialogDescription className="text-gray-400 text-sm">
+          <DialogTitle className="text-brand-700">Nuevo Periodo Académico</DialogTitle>
+          <DialogDescription className="text-slate-500 text-sm">
             Ingresa el nombre del periodo para registrarlo en el sistema.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label className="text-gray-300">Nombre del Periodo</Label>
+            <Label className="text-slate-600">Nombre del Periodo</Label>
             <Input 
               {...register('name')} 
               placeholder="Ej: Nov 2025 - Mar 2026" 
-              className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500" 
+              className="bg-white border-slate-300 text-slate-900 placeholder:text-slate-500" 
             />
-            {errors.name && <p className="text-red-400 text-xs">{String(errors.name.message)}</p>}
+            {errors.name && <p className="text-red-600 text-xs">{String(errors.name.message)}</p>}
           </div>
           <div className="flex justify-end pt-2">
-             <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 text-white" disabled={loading}>
+             <Button type="submit" className="bg-brand-700 hover:bg-brand-800 text-white" disabled={loading}>
                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                {loading ? "Guardando..." : "Crear Periodo"}
              </Button>

@@ -1,519 +1,252 @@
-import Sidebar from "@/components/SideBar"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { ArrowRight, CheckCircle2, FolderKanban, Loader2, Cpu, PlayCircle, FolderOpen, GitCommitHorizontal } from "lucide-react"
 import api from "@/api/axios"
-import { useAuthStore } from "@/store/authStore" 
-import { 
-  FolderGit2,  
-  GraduationCap, 
-  Code2, 
-  Loader2, 
-  ArrowRight,
-  Clock,
-  CheckCircle2,
-  Eye,
-  Calendar
-} from "lucide-react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { useNavigate } from "react-router-dom"
-import { 
-  Dialog, 
-  DialogHeader, 
-  DialogFooter, 
-  DialogTrigger, 
-  DialogContent, 
-  DialogTitle,   
-  DialogDescription,
-  DialogClose
-} from "@/components/ui/dialog"
-import type { Proyect } from "@/types/Proyect" 
+import { useAuthStore } from "@/store/authStore"
+import { usePeriodStore } from "@/store/periodStore"
+import { StatCard } from "@/components/common/StatCard"
+import { StatusBadge } from "@/components/common/StatusBadge"
+import { InitialsAvatar } from "@/components/common/InitialsAvatar"
+import { ProgressBar } from "@/components/common/ProgressBar"
+import { EmptyState } from "@/components/common/EmptyState"
+import { normalizeStatus, projectProgress } from "@/lib/status"
+import { greeting, timeAgo, formatDate } from "@/lib/format"
 
-type Career = {
+type Project = {
   id: string
   name: string
+  description: string
+  status: string
+  startDate?: string | null
+  endDate?: string | null
+  academic_period?: string | null
   createdAt: string
-}
-
-type Skill = {
-  id: string
-  name: string
+  user?: { name: string } | null
+  career?: { name: string } | null
+  projectSkills?: { skill?: { id: string; name: string } }[]
 }
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const accessToken = localStorage.getItem("token")
-  
-  // Obtenemos el rol del usuario desde el Store
-  const { userRole } = useAuthStore()
-  const isAdmin = userRole?.toLowerCase().includes('admin')
-
+  const user = useAuthStore((s) => s.user)
+  const period = usePeriodStore((s) => s.period)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [skillsTotal, setSkillsTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({
-    totalProjects: 0,
-    totalUsers: 0,
-    totalCareers: 0,
-    totalSkills: 0
-  })
-  
-  const [recentProjects, setRecentProjects] = useState<Proyect[]>([])
-  const [allProjects, setAllProjects] = useState<Proyect[]>([]) 
-  const [careersList, setCareersList] = useState<Career[]>([])
-  const [skillsList, setSkillsList] = useState<Skill[]>([])
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true)
-        const [projectsRes, usersRes, careersRes, skillsRes] = await Promise.allSettled([
-          api.get("/api/projects?limit=1000"),
-          api.get("/api/users?limit=1000"),
-          api.get("/api/careers?limit=1000"),
-          api.get("/api/skills?limit=1000")
-        ])
+    Promise.allSettled([api.get("/api/projects?limit=1000"), api.get("/api/skills?limit=1000")])
+      .then(([p, s]) => {
+        if (p.status === "fulfilled") setProjects(p.value.data?.data ?? p.value.data ?? [])
+        if (s.status === "fulfilled") setSkillsTotal(s.value.data?.meta?.total ?? s.value.data?.data?.length ?? 0)
+      })
+      .finally(() => setLoading(false))
+  }, [])
 
-        if (projectsRes.status === 'fulfilled') {
-          const rawData = projectsRes.value.data
-          const projectsData = Array.isArray(rawData) ? rawData : (rawData.data || [])
-          
-          
-          let visibleProjects = projectsData;
+  const visible = useMemo(
+    () => (period ? projects.filter((p) => p.academic_period === period) : projects),
+    [projects, period]
+  )
 
-          // COMENTADO: Ya no ocultamos los proyectos pendientes para los usuarios normales
-          /*
-          if (!isAdmin) {
-             visibleProjects = projectsData.filter((p: any) => p.status !== 'pendiente')
-          }
-          */
+  const stats = useMemo(() => {
+    let active = 0, done = 0
+    visible.forEach((p) => {
+      const s = normalizeStatus(p.status, p.startDate, p.endDate)
+      if (s === "completado") done++
+      else if (s === "en-progreso") active++
+    })
+    return { total: visible.length, active, done }
+  }, [visible])
 
-          setStats(prev => ({ ...prev, totalProjects: visibleProjects.length }))
-          
-          setRecentProjects(visibleProjects.slice(0, 4))
-          setAllProjects(visibleProjects) 
-        }
+  // Proyectos en curso con fecha de cierre más próxima
+  const featured = useMemo(
+    () =>
+      visible
+        .filter((p) => normalizeStatus(p.status, p.startDate, p.endDate) === "en-progreso")
+        .sort((a, b) => (a.endDate ? new Date(a.endDate).getTime() : Infinity) - (b.endDate ? new Date(b.endDate).getTime() : Infinity))
+        .slice(0, 2),
+    [visible]
+  )
 
-        if (usersRes.status === 'fulfilled') {
-          const rawData = usersRes.value.data
-          const usersData = Array.isArray(rawData) ? rawData : (rawData.data || [])
-          setStats(prev => ({ ...prev, totalUsers: usersData.length }))
-        }
+  const recent = useMemo(
+    () => [...visible].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
+    [visible]
+  )
 
-        if (careersRes.status === 'fulfilled') {
-          const rawData = careersRes.value.data
-          const careersData = Array.isArray(rawData) ? rawData : (rawData.data || [])
-          setStats(prev => ({ ...prev, totalCareers: careersData.length }))
-          setCareersList(careersData)
-        }
-        
-        if (skillsRes.status === 'fulfilled') {
-           const rawData = skillsRes.value.data;
-           const skillsData = Array.isArray(rawData) ? rawData : (rawData.data || []);
-           
-           setStats(prev => ({ ...prev, totalSkills: skillsData.length }))
-           setSkillsList(skillsData)
-        }
+  const topSkills = useMemo(() => {
+    const count = new Map<string, { name: string; n: number }>()
+    visible.forEach((p) =>
+      p.projectSkills?.forEach((ps) => {
+        if (!ps.skill) return
+        const cur = count.get(ps.skill.id) || { name: ps.skill.name, n: 0 }
+        cur.n++
+        count.set(ps.skill.id, cur)
+      })
+    )
+    return [...count.values()].sort((a, b) => b.n - a.n).slice(0, 6)
+  }, [visible])
 
-      } catch (error) {
-        console.error("Error cargando dashboard:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
+  const firstName = (user?.name || "").split(" ")[0]
 
-    if (accessToken) {
-      fetchDashboardData()
-    }
-  }, [accessToken, isAdmin]) 
-
-  const statCards = [
-    { 
-      key: "projects",
-      label: "Proyectos Registrados", 
-      value: stats.totalProjects, 
-      icon: FolderGit2, 
-      color: "text-cyan-500", 
-      bg: "bg-cyan-500/10",
-      // COMENTADO: Quitamos la mención a los pendientes
-      // desc: isAdmin ? "Total (incluye pendientes)" : "Proyectos validados"
-      desc: "Total de proyectos en curso"
-    },
-    { 
-      key: "careers",
-      label: "Carreras Ofertadas", 
-      value: stats.totalCareers, 
-      icon: GraduationCap, 
-      color: "text-yellow-500", 
-      bg: "bg-yellow-500/10",
-      desc: "Carreras de tercer nivel"
-    },
-    { 
-      key: "skills",
-      label: "Habilidades Técnicas", 
-      value: stats.totalSkills, 
-      icon: Code2, 
-      color: "text-emerald-500", 
-      bg: "bg-emerald-500/10",
-      desc: "Habilidades registradas"
-    },
-  ]
-
-  const renderDialogContent = (key: string) => {
-    if (key === 'projects') {
-      return (
-        <div className="grid gap-4 py-4">
-          {allProjects.length > 0 ? (
-             allProjects.map(project => (
-              <div key={project.id} className="flex justify-between items-center p-3 bg-gray-800 rounded-md border border-gray-700">
-                <div className="flex items-center">
-                  <FolderGit2 className="w-5 h-5 text-cyan-500 mr-3" />
-                  <span className="text-sm font-medium text-gray-200">{project.name}</span>
-                </div>
-                {/* COMENTADO: Ocultamos el badge de 'Pendiente' del popup rápido de proyectos */}
-                {/* {project.status === 'pendiente' && (
-                   <Badge variant="outline" className="text-xs text-yellow-500 border-yellow-800 bg-yellow-900/20">
-                     Pendiente
-                   </Badge>
-                )} */}
-              </div>
-             ))
-          ) : (
-            <p className="text-gray-500">No hay proyectos registrados.</p>
-          )}
-        </div>
-      )
-    }
-    if (key === 'careers') {
-      return (
-        <div className="grid gap-4 py-4">
-          {careersList.length > 0 ? (
-             careersList.map(career => (
-              <div key={career.id} className="flex items-center p-3 bg-gray-800 rounded-md border border-gray-700">
-                <GraduationCap className="w-5 h-5 text-yellow-500 mr-3" />
-                <span className="text-sm font-medium text-gray-200">{career.name}</span>
-              </div>
-             ))
-          ) : (
-            <p className="text-gray-500">No hay carreras registradas.</p>
-          )}
-        </div>
-      )
-    }
-    if (key === 'skills') {
-      return (
-        <div className="flex flex-wrap gap-2 py-4">
-          {skillsList.length > 0 ? (
-            skillsList.map(skill => (
-              <Badge key={skill.id} variant="secondary" className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1">
-                 {skill.name}
-              </Badge>
-            ))
-          ) : (
-            <p className="text-gray-500">No hay habilidades registradas.</p>
-          )}
-        </div>
-      )
-    }
-    return null
+  if (loading) {
+    return (
+      <div className="flex h-72 flex-col items-center justify-center text-slate-500">
+        <Loader2 className="mb-2 size-8 animate-spin text-brand-600" />
+        <p className="text-sm">Cargando el panel…</p>
+      </div>
+    )
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-950 text-gray-100 font-sans">
-      <Sidebar />
-      
-      <main className="flex-1 ml-0 md:ml-64 p-0 transition-all">
-        
-        <div className="p-4 md:p-6 space-y-6">
-          
-          <header className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">Panel de Control</h1>
-              <p className="text-gray-400 mt-1">Sistema de gestión de proyectos</p>
-            </div>
-            <Button className="bg-cyan-600 hover:bg-cyan-700" onClick={() => navigate("/projects")}>
-              Ver Todos los Proyectos
-            </Button>
-          </header>
+    <div className="space-y-8">
+      <header>
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+          {greeting()}{firstName ? `, ${firstName}` : ""}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Así avanza el semillero{period ? ` en ${period}` : ""}.
+        </p>
+      </header>
 
-          {loading ? (
-            <div className="h-96 flex flex-col items-center justify-center text-gray-500">
-              <Loader2 className="w-10 h-10 animate-spin mb-2 text-cyan-500" />
-              <p>Sincronizando datos del sistema...</p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                
-                {statCards.map((stat, index) => {
-                  
-                  if (stat.key === 'projects') {
-                    return (
-                      <Dialog key={index}>
-                        <Card className="bg-gray-900 border-gray-800 shadow-lg hover:border-gray-700 transition-all relative">
-                          <CardContent className="p-6">
-                            
-                            <div className="flex justify-between items-start">
-                              <div 
-                                className="cursor-pointer group/nav"
-                                onClick={() => navigate("/projects")}
-                                title="Ir a la página de proyectos"
-                              >
-                                <p className="text-sm font-medium text-gray-400 group-hover/nav:text-cyan-400 transition-colors">
-                                  {stat.label}
-                                </p>
-                                <h3 className="text-3xl font-bold text-white mt-2 group-hover/nav:text-cyan-400 transition-colors">
-                                  {stat.value}
-                               </h3>
-                              </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Proyectos registrados" value={stats.total} icon={FolderKanban} onClick={() => navigate("/projects")} />
+        <StatCard label="En progreso" value={stats.active} icon={PlayCircle} tone="emerald" hint="Dentro de sus fechas" />
+        <StatCard label="Completados" value={stats.done} icon={CheckCircle2} tone="violet" hint="Con fecha de cierre cumplida" />
+        <StatCard label="Tecnologías" value={skillsTotal} icon={Cpu} tone="amber" hint="En el catálogo" />
+      </section>
 
-                              <DialogTrigger asChild>
-                                <div className={`p-3 rounded-xl ${stat.bg} cursor-pointer hover:opacity-80 transition-opacity`} title="Ver lista rápida">
-                                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                                </div>
-                              </DialogTrigger>
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex items-center text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-green-500" /> 
-                                  {stat.desc}
-                                </span>
-                              </div>
-                              
-                              <DialogTrigger asChild>
-                                <div className="h-6 flex items-center text-xs text-cyan-400 hover:text-cyan-300 font-medium px-2 cursor-pointer transition-colors">
-                                  <Eye className="w-3 h-3 mr-1" /> Ver lista
-                                </div>
-                              </DialogTrigger>
-                            </div>
-
-                          </CardContent>
-                        </Card>
-
-                        <DialogContent className="bg-gray-900 border-gray-800 text-white max-h-[80vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle className="text-xl flex items-center gap-2">
-                              <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                              Lista de {stat.label}
-                            </DialogTitle>
-                            <DialogDescription className="text-gray-400">
-                              Vista rápida de títulos registrados.
-                            </DialogDescription>
-                          </DialogHeader>
-                          
-                          {renderDialogContent(stat.key)}
-
-                          <DialogFooter>
-                              <DialogClose asChild>
-                                <Button type="button" variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800 cursor-pointer">
-                                  Cerrar
-                                </Button>
-                              </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    )
-                  }
-
+      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        <div className="space-y-8 min-w-0">
+          <section>
+            <SectionHeader eyebrow="En foco" title="Proyectos próximos a cerrar" href="/projects" link="Ver todos los proyectos" />
+            {featured.length === 0 ? (
+              <EmptyState icon={FolderOpen} title="No hay proyectos en progreso" description="Cuando un proyecto tenga fechas vigentes aparecerá aquí." />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {featured.map((p) => {
+                  const pct = projectProgress(p.startDate, p.endDate)
                   return (
-                    <Card key={index} className="bg-gray-900 border-gray-800 shadow-lg hover:border-gray-700 transition-all relative">
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <CardContent className="p-6 cursor-pointer group">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="text-sm font-medium text-gray-400 group-hover:text-cyan-400 transition-colors">{stat.label}</p>
-                                <h3 className="text-3xl font-bold text-white mt-2 group-hover:text-cyan-400 transition-colors">{stat.value}</h3>
-                              </div>
-                              <div className={`p-3 rounded-xl ${stat.bg} group-hover:opacity-80 transition-opacity`}>
-                                <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                              </div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between">
-                              <div className="flex items-center text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-green-500" /> 
-                                  {stat.desc}
-                                </span>
-                              </div>
-                              <div className="h-6 flex items-center text-xs text-cyan-400 group-hover:text-cyan-300 font-medium px-2">
-                                <Eye className="w-3 h-3 mr-1" /> Ver lista
-                              </div>
-                            </div>
-                          </CardContent>
-                        </DialogTrigger>
-
-                        <DialogContent className="bg-gray-900 border-gray-800 text-white max-h-[80vh] overflow-y-auto">
-                          <DialogHeader>
-                            <DialogTitle className="text-xl flex items-center gap-2">
-                              <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                              Lista de {stat.label}
-                            </DialogTitle>
-                            <DialogDescription className="text-gray-400">
-                              Listado completo registrado en el sistema.
-                            </DialogDescription>
-                          </DialogHeader>
-                          
-                          {renderDialogContent(stat.key)}
-
-                          <DialogFooter>
-                              <DialogClose asChild>
-                                <Button type="button" variant="outline" className="border-gray-700 text-gray-300 hover:bg-gray-800 cursor-pointer">
-                                  Cerrar
-                                </Button>
-                              </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </Card>
+                    <Link
+                      key={p.id}
+                      to={`/projects/${p.id}`}
+                      className="group rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-200 hover:shadow-md"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-800">
+                          {p.career?.name || "Sin carrera"}
+                        </span>
+                        <StatusBadge status={p.status} startDate={p.startDate} endDate={p.endDate} />
+                      </div>
+                      <h3 className="mt-3 line-clamp-1 font-semibold text-slate-900 group-hover:text-brand-700">{p.name}</h3>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-500">{p.description}</p>
+                      <div className="mt-4 flex items-center gap-2">
+                        <InitialsAvatar name={p.user?.name} />
+                        <div className="min-w-0 flex-1 leading-tight">
+                          <p className="truncate text-sm text-slate-800">{p.user?.name || "Sin responsable"}</p>
+                          <p className="text-[11px] text-slate-500">Cierra: {formatDate(p.endDate)}</p>
+                        </div>
+                        {pct !== null && <span className="text-xs font-medium text-slate-600">{pct}%</span>}
+                      </div>
+                      {pct !== null && <ProgressBar value={pct} className="mt-3" />}
+                    </Link>
                   )
                 })}
               </div>
+            )}
+          </section>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="col-span-1 lg:col-span-3 bg-gray-900 border border-gray-800 rounded-lg shadow-lg hover:border-gray-700 transition-all overflow-hidden">
-                  
-                  <div 
-                    className="p-4 border-b border-gray-800 flex justify-between items-center cursor-pointer hover:bg-gray-800/50 transition-colors group"
-                    onClick={() => navigate("/projects")}
-                    title="Ir a todos los proyectos"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-cyan-500 group-hover:text-cyan-400 transition-colors"/>
-                      <h3 className="text-lg font-bold text-white group-hover:text-cyan-400 transition-colors">
-                        Últimos Proyectos
-                      </h3>
-                    </div>
-                    
-                    <div className="flex items-center text-xs text-gray-500 group-hover:text-cyan-400 transition-colors gap-1">
-                       Ver todo <ArrowRight className="w-4 h-4" />
-                    </div>
-                  </div>
-
-                  <div className="divide-y divide-gray-800">
-                    {recentProjects.length > 0 ? (
-                      <>
-                        {recentProjects.map((proj) => (
-                          <Dialog key={proj.id}>
-                            <DialogTrigger asChild>
-                              <div className="p-4 hover:bg-gray-800/50 transition-colors flex justify-between items-center cursor-pointer group/item">
-                                
-                                <div className="flex-1 min-w-0 mr-4">
-                                  <h5 className="font-semibold text-gray-200 truncate group-hover/item:text-cyan-400 transition-colors" title={proj.name}>
-                                    {proj.name}
-                                  </h5>
-                                  <div className="text-xs text-gray-500 flex items-center gap-1 mt-1 truncate">
-                                    {proj.startDate ? (
-                                      <>
-                                        <Calendar className="w-3 h-3 shrink-0"/> 
-                                        <span className="truncate">{new Date(proj.startDate).toLocaleDateString()}</span>
-                                      </>
-                                    ) : 'Sin fecha'}
-                                    <span className="mx-1 shrink-0">•</span> 
-                                    <span className="truncate">
-                                      {proj.careerId ? 'Carrera asignada' : 'Sin carrera'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {/* COMENTADO: Desactivamos la lógica del badge pendiente en el listado */}
-                                {/* {proj.status === 'pendiente' ? (
-                                  <Badge variant="outline" className="shrink-0 text-xs text-yellow-500 border-yellow-800 bg-yellow-900/10">
-                                    Pendiente
-                                  </Badge>
-                                ) : ( */}
-                                  <Badge variant="outline" className={`shrink-0 text-xs ${proj.status === 'Finalizado' ? 'text-green-400 border-green-800' : 'text-cyan-400 border-cyan-800'}`}>
-                                    {proj.status || 'Activo'}
-                                  </Badge>
-                                {/* )} */}
-
-                              </div>
-                            </DialogTrigger>
-
-                            <DialogContent className="bg-gray-900 border-gray-800 text-white sm:max-w-lg">
-                              <DialogHeader>
-                                <DialogTitle className="text-xl flex items-center gap-2 text-cyan-400">
-                                  <FolderGit2 className="w-5 h-5"/>
-                                  Detalles del Proyecto
-                                </DialogTitle>
-                              </DialogHeader>
-                              
-                              <div className="space-y-4 py-4">
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-400">Nombre del Proyecto</h4>
-                                  <p className="text-lg font-semibold text-white break-words">{proj.name}</p>
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-medium text-gray-400">Descripción</h4>
-                                  <p className="text-sm text-gray-300 mt-1 leading-relaxed">
-                                    {proj.description || "No hay descripción disponible para este proyecto."}
-                                  </p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="p-3 bg-gray-800 rounded-lg">
-                                    <span className="text-xs text-gray-500 block mb-1">Estado</span>
-                                    
-                                    {/* COMENTADO: Desactivamos la lógica del badge pendiente en el dialog */}
-                                    {/* {proj.status === 'pendiente' ? (
-                                      <Badge className="bg-yellow-500/20 text-yellow-400">
-                                        Pendiente
-                                      </Badge>
-                                    ) : ( */}
-                                      <Badge className={proj.status === 'Finalizado' ? 'bg-green-500/20 text-green-400' : 'bg-cyan-500/20 text-cyan-400'}>
-                                        {proj.status || 'En Progreso'}
-                                      </Badge>
-                                    {/* )} */}
-
-                                  </div>
-                                  <div className="p-3 bg-gray-800 rounded-lg">
-                                    <span className="text-xs text-gray-500 block mb-1">Fecha de Inicio</span>
-                                    <div className="text-sm font-medium">
-                                      {proj.startDate ? new Date(proj.startDate).toLocaleDateString() : 'No definida'}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <DialogFooter>
-                                <Button 
-                                  onClick={() => navigate(`/projects/${proj.id}`)} 
-                                  variant="secondary" 
-                                  className="mr-2 cursor-pointer"
-                                >
-                                  Ver completo
-                                </Button>
-                                <DialogClose asChild>
-                                  <Button variant="outline" className="border-gray-700 text-gray-300 cursor-pointer">Cerrar</Button>
-                                </DialogClose>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        ))}
-
-                        <div className="p-4">
-                          <Button 
-                            variant="ghost" 
-                            className="w-full text-sm text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer" 
-                            onClick={() => navigate("/projects")}
-                          >
-                            Ver todos los proyectos <ArrowRight className="w-4 h-4 ml-2"/>
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="p-8 text-center text-gray-500 text-sm">
-                        No hay actividad reciente.
-                      </div>
-                    )}
-                  </div>
+          <section>
+            <SectionHeader eyebrow="Trabajo reciente" title="Proyectos recientes" href="/projects" link="Abrir listado completo" />
+            {recent.length === 0 ? (
+              <EmptyState icon={FolderOpen} title="Aún no hay proyectos" description="Registra el primero desde el botón «Registrar proyecto»." />
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="hidden grid-cols-[1fr_180px_130px_110px] gap-4 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 md:grid">
+                  <span>Proyecto</span><span>Responsable</span><span>Estado</span><span className="text-right">Registrado</span>
                 </div>
+                {recent.slice(0, 6).map((p) => (
+                  <Link
+                    key={p.id}
+                    to={`/projects/${p.id}`}
+                    className="grid grid-cols-1 items-center gap-2 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-brand-50/50 md:grid-cols-[1fr_180px_130px_110px] md:gap-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-slate-900">{p.name}</p>
+                      <p className="truncate text-xs text-slate-500">{p.career?.name || "Sin carrera"}</p>
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <InitialsAvatar name={p.user?.name} className="size-6 text-[10px]" />
+                      <span className="truncate text-sm text-slate-700">{p.user?.name || "—"}</span>
+                    </div>
+                    <div><StatusBadge status={p.status} startDate={p.startDate} endDate={p.endDate} /></div>
+                    <span className="text-xs text-slate-500 md:text-right">{timeAgo(p.createdAt)}</span>
+                  </Link>
+                ))}
               </div>
-            </div>
-          )}
+            )}
+          </section>
         </div>
-      </main>
+
+        <aside className="space-y-6">
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="font-semibold text-slate-900">Tecnologías más usadas</h2>
+            {topSkills.length === 0 ? (
+              <p className="mt-3 text-sm text-slate-500">Todavía no hay proyectos con tecnologías asignadas.</p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {topSkills.map((s) => (
+                  <li key={s.name}>
+                    <div className="mb-1 flex justify-between text-sm">
+                      <span className="text-slate-700">{s.name}</span>
+                      <span className="text-slate-500">{s.n}</span>
+                    </div>
+                    <ProgressBar value={Math.round((s.n / topSkills[0].n) * 100)} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-slate-900">Actividad reciente</h2>
+              <Link to="/projects" className="text-xs font-medium text-brand-700 hover:underline">Ver todo</Link>
+            </div>
+            <ul className="mt-3 divide-y divide-slate-100">
+              {recent.slice(0, 5).map((p) => (
+                <li key={p.id} className="flex gap-3 py-3">
+                  <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                    <GitCommitHorizontal className="size-4" />
+                  </span>
+                  <div className="min-w-0 text-sm leading-snug">
+                    <p className="text-slate-800">
+                      <span className="font-medium">{p.user?.name || "Alguien"}</span> registró <span className="font-medium">{p.name}</span>
+                    </p>
+                    <p className="text-xs text-slate-500">{timeAgo(p.createdAt)}</p>
+                  </div>
+                </li>
+              ))}
+              {recent.length === 0 && <li className="py-3 text-sm text-slate-500">Sin actividad todavía.</li>}
+            </ul>
+          </section>
+        </aside>
+      </div>
     </div>
-  ) 
+  )
+}
+
+function SectionHeader({ eyebrow, title, href, link }: { eyebrow: string; title: string; href: string; link: string }) {
+  return (
+    <div className="mb-3 flex items-end justify-between gap-3">
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">{eyebrow}</p>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+      </div>
+      <Link to={href} className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline">
+        {link} <ArrowRight className="size-4" />
+      </Link>
+    </div>
+  )
 }
 
 export default Dashboard

@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { AuthLayout } from "@/components/layout/AuthLayout"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -104,15 +105,18 @@ const LoginPage = () => {
   }, [email, password, login, navigate])
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-      <div className="w-full max-w-sm p-8 bg-gray-800 rounded-2xl shadow-lg space-y-6 text-gray-100">
-        <h1 className="text-2xl font-bold text-center text-white ">Iniciar Sesión</h1>
+    <AuthLayout>
+      <div className="w-full space-y-6 text-slate-900">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Iniciar sesión</h1>
+          <p className="mt-1 text-sm text-slate-500">Ingresa con tu cuenta institucional.</p>
+        </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           
           {/* EMAIL */}
           <div>
-            <Label className="text-gray-300 py-3">Email</Label>
+            <Label className="mb-1.5 text-slate-700">Email</Label>
             <Input
               type="email"
               placeholder="tu@email.com"
@@ -123,13 +127,13 @@ const LoginPage = () => {
               }}
               disabled={loading}
               // Borde ROJO si hay error
-              className={`bg-gray-700 text-white placeholder-gray-400 focus:ring-cyan-400 ${
-                  emailError ? "border-red-500 focus:border-red-500 ring-1 ring-red-500" : "border-gray-600 focus:border-cyan-400"
+              className={`bg-slate-100 text-slate-900 placeholder-slate-400 focus:ring-brand-600 ${
+                  emailError ? "border-red-500 focus:border-red-500 ring-1 ring-red-500" : "border-slate-300 focus:border-brand-600"
               }`}
             />
             {/* MENSAJE DEBAJO DEL CORREO */}
             {emailError && (
-                <p className="mt-1 text-red-500 font-bold text-[11px] ml-1 animate-in fade-in">
+                <p className="mt-1 text-red-600 font-bold text-[11px] ml-1 animate-in fade-in">
                   {emailError}
                 </p>
             )}
@@ -137,7 +141,7 @@ const LoginPage = () => {
 
           {/* PASSWORD */}
           <div>
-            <Label className="text-gray-300 py-3">Contraseña</Label>
+            <Label className="mb-1.5 text-slate-700">Contraseña</Label>
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
@@ -147,22 +151,22 @@ const LoginPage = () => {
                     setPassword(e.target.value);
                     if (passwordError) setPasswordError(""); // Limpiar al escribir
                 }}
-                className={`placeholder-gray-400 focus:ring-cyan-400 ${
-                    passwordError ? "border-red-500 focus:border-red-500 ring-1 ring-red-500" : "border-gray-600 focus:border-cyan-400"
+                className={`placeholder-slate-400 focus:ring-brand-600 ${
+                    passwordError ? "border-red-500 focus:border-red-500 ring-1 ring-red-500" : "border-slate-300 focus:border-brand-600"
                 }`}
               />
               
               <button
                 type="button" 
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-3 flex items-center text-gray-500 hover:text-gray-700"
+                className="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-slate-400"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
             {/* MENSAJE DEBAJO DE LA CONTRASEÑA */}
             {passwordError && (
-                <p className="mt-1 text-red-500 font-bold text-[11px] ml-1 animate-in fade-in">
+                <p className="mt-1 text-red-600 font-bold text-[11px] ml-1 animate-in fade-in">
                   {passwordError}
                 </p>
             )}
@@ -171,7 +175,7 @@ const LoginPage = () => {
           <div className="flex justify-end">
             <Link 
               to="/forgot-password" 
-              className="text-xs text-cyan-500 hover:text-cyan-400 hover:underline transition-colors"
+              className="text-xs font-medium text-brand-700 hover:text-brand-800 hover:underline"
             >
               ¿Olvidaste tu contraseña?
             </Link>
@@ -180,7 +184,7 @@ const LoginPage = () => {
           <Button
             type="submit" 
             disabled={loading} 
-            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white mt-4"
+            className="mt-2 h-10 w-full"
           >
             {loading ? "Cargando..." : "Iniciar Sesión"}
           </Button>
@@ -188,22 +192,22 @@ const LoginPage = () => {
         
         {/* Error General (Solo si no es de correo o clave) */}
         {generalError && (
-             <div className="flex items-center gap-2 bg-red-900/20 border border-red-900/50 p-3 rounded mt-2">
-               <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-               <p className="text-red-400 text-xs font-medium">{generalError}</p>
+             <div className="flex items-center gap-2 bg-red-50 border border-red-200 p-3 rounded mt-2">
+               <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
+               <p className="text-red-600 text-xs font-medium">{generalError}</p>
              </div>
         )}
 
-        <p className="text-center text-sm text-gray-400">
+        <p className="text-center text-sm text-slate-500">
           ¿No tienes cuenta?{" "}
-          <Link to="/register" className="text-cyan-400 hover:underline">
+          <Link to="/register" className="text-brand-700 hover:underline">
             Regístrate
           </Link>
         </p>
 
       </div>
       <LoadingOverlay isVisible={loading} message="Iniciando sesión..." />
-    </div>
+    </AuthLayout>
   )
 }
 

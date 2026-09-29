@@ -144,10 +144,10 @@ export function CreateTeacherModal() {
           {success && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-green-600 border-green-500 text-white shadow-2xl flex items-center gap-3 pr-6">
-                <CheckCircle2 className="h-6 w-6 text-white" />
+                <CheckCircle2 className="h-6 w-6 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-lg">Éxito</AlertTitle>
-                  <AlertDescription className="text-white/90 font-medium text-base">Docente registrado correctamente</AlertDescription>
+                  <AlertDescription className="text-white font-medium text-base">Docente registrado correctamente</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -157,10 +157,10 @@ export function CreateTeacherModal() {
           {errorAlert && (
             <div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300">
               <Alert className="w-auto bg-red-600 border-red-500 text-white shadow-2xl flex items-center gap-3 pr-6 py-2">
-                <AlertCircle className="h-4 w-4 text-white" />
+                <AlertCircle className="h-4 w-4 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-xs">Error</AlertTitle>
-                  <AlertDescription className="text-white/90 text-[10px]">{errorMessage}</AlertDescription>
+                  <AlertDescription className="text-white text-[10px]">{errorMessage}</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -173,15 +173,15 @@ export function CreateTeacherModal() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" className="w-full justify-start text-cyan-400 hover:text-cyan-300 hover:bg-cyan-950/30 gap-3 cursor-pointer">
+          <Button variant="ghost" className="w-full justify-start h-10 rounded-lg font-normal text-blue-100 hover:bg-white/10 hover:text-white gap-3 cursor-pointer">
             <UserPlus className="w-5 h-5" />
             <span className="font-medium">Registrar Docente</span>
           </Button>
         </DialogTrigger>
         
-        <DialogContent className="bg-gray-800 border-gray-700 text-white sm:max-w-md">
+        <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-cyan-400 flex items-center gap-2">
+            <DialogTitle className="text-xl font-bold text-brand-700 flex items-center gap-2">
               <UserPlus className="w-6 h-6" /> Nuevo Docente
             </DialogTitle>
           </DialogHeader>
@@ -192,7 +192,7 @@ export function CreateTeacherModal() {
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-xs">Nombre Completo</FormLabel>
-                  <FormControl><Input placeholder="Nombre" className="bg-gray-900 border-gray-600 h-9 text-sm" {...field} /></FormControl>
+                  <FormControl><Input placeholder="Nombre" className="bg-white border-slate-300 h-9 text-sm" {...field} /></FormControl>
                   <FormMessage className="text-[10px]" />
                 </FormItem>
               )} />
@@ -205,12 +205,12 @@ export function CreateTeacherModal() {
                       placeholder="docente@sudamericano.edu.ec" 
                       type="email" 
                       // Borde ROJO si hay error
-                      className={`bg-gray-900 h-9 text-sm ${fieldState.error ? "border-red-500 ring-1 ring-red-500" : "border-gray-600"}`} 
+                      className={`bg-white h-9 text-sm ${fieldState.error ? "border-red-500 ring-1 ring-red-500" : "border-slate-300"}`} 
                       {...field} 
                     />
                   </FormControl>
                   {/* Mensaje ROJO abajo */}
-                  <FormMessage className="text-[10px] text-red-500 font-bold" />
+                  <FormMessage className="text-[10px] text-red-600 font-bold" />
                 </FormItem>
               )} />
 
@@ -222,11 +222,11 @@ export function CreateTeacherModal() {
                       <FormControl>
                         <Input 
                           type={showPassword ? "text" : "password"} 
-                          className="bg-gray-900 border-gray-600 pr-10 h-9 text-sm" 
+                          className="bg-white border-slate-300 pr-10 h-9 text-sm" 
                           {...field} 
                         />
                       </FormControl>
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900">
                         {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
                     </div>
@@ -240,19 +240,19 @@ export function CreateTeacherModal() {
                       <FormControl>
                         <Input 
                           type={showConfirmPassword ? "text" : "password"} 
-                          className="bg-gray-900 border-gray-600 pr-10 h-9 text-sm" 
+                          className="bg-white border-slate-300 pr-10 h-9 text-sm" 
                           {...field} 
                         />
                       </FormControl>
-                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                      <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900">
                         {showConfirmPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
                     </div>
                   </FormItem>
                 )} />
 
-                <div className="bg-gray-900/50 p-2 rounded border border-gray-700 grid grid-cols-2 gap-x-2 gap-y-1">
-                   <p className="col-span-2 text-[9px] font-bold text-gray-500 uppercase mb-1 tracking-wider">Requisitos:</p>
+                <div className="bg-white p-2 rounded border border-slate-200 grid grid-cols-2 gap-x-2 gap-y-1">
+                   <p className="col-span-2 text-[9px] font-bold text-slate-500 uppercase mb-1 tracking-wider">Requisitos:</p>
                    <RequirementItem label="Mín. 6 caracteres" met={hasMinLength} />
                    <RequirementItem label="Mayúscula" met={hasUppercase} />
                    <RequirementItem label="Minúscula" met={hasLowercase} />
@@ -266,7 +266,7 @@ export function CreateTeacherModal() {
                 <FormItem>
                   <FormLabel className="text-xs">Carrera Asignada</FormLabel>
                   <FormControl>
-                    <select className="w-full p-2 rounded-md bg-gray-900 border border-gray-600 text-sm text-white h-9 outline-none focus:ring-1 focus:ring-cyan-500" {...field}>
+                    <select className="w-full p-2 rounded-md bg-white border border-slate-300 text-sm text-slate-900 h-9 outline-none focus:ring-1 focus:ring-brand-600" {...field}>
                       <option value="">Seleccionar carrera...</option>
                       {careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
@@ -276,10 +276,10 @@ export function CreateTeacherModal() {
               )} />
 
               <DialogFooter className="pt-4 gap-2">
-                 <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="hover:bg-gray-700 text-gray-300 text-xs h-9">
+                 <Button type="button" variant="ghost" onClick={() => setOpen(false)} className="hover:bg-slate-100 text-slate-400 text-xs h-9">
                    Cancelar
                  </Button>
-                 <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 text-white min-w-[100px] text-xs h-9">
+                 <Button type="submit" className="bg-brand-700 hover:bg-brand-800 text-white min-w-[100px] text-xs h-9">
                    Registrar
                  </Button>
               </DialogFooter>
@@ -295,10 +295,10 @@ function RequirementItem({ label, met, error }: { label: string; met: boolean; e
   return (
     <div className="flex items-center gap-1.5">
       <div className={`w-2.5 h-2.5 rounded-full flex items-center justify-center transition-colors 
-        ${met ? 'bg-green-500' : error ? 'bg-red-600' : 'bg-gray-700'}`}>
-        {error ? <X className="w-2 h-2 text-white" strokeWidth={4} /> : <Check className="w-2 h-2 text-white" strokeWidth={4} />}
+        ${met ? 'bg-green-500' : error ? 'bg-red-600' : 'bg-slate-100'}`}>
+        {error ? <X className="w-2 h-2 text-slate-900" strokeWidth={4} /> : <Check className="w-2 h-2 text-slate-900" strokeWidth={4} />}
       </div>
-      <span className={`text-[10px] transition-colors ${met ? 'text-green-400 font-medium' : error ? 'text-red-500 font-bold' : 'text-gray-500'}`}>
+      <span className={`text-[10px] transition-colors ${met ? 'text-green-600 font-medium' : error ? 'text-red-500 font-bold' : 'text-slate-500'}`}>
         {label}
       </span>
     </div>

@@ -1,220 +1,164 @@
 import { useEffect, useState } from "react"
-import { NavLink, useNavigate, Link } from "react-router-dom" 
-import api from "@/api/axios" 
+import { NavLink, useNavigate, Link } from "react-router-dom"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus } from "lucide-react"
+import api from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
-import { 
-  LogOut, Menu, X,
-  CheckCircle2Icon 
-} from "lucide-react"
-// Se eliminó LucideProps y AlertCircleIcon porque no se usaban
-import avatar from "../assets/avatar.png"
-import { 
-  Dialog, DialogClose, DialogContent, DialogTrigger, 
-  DialogDescription, DialogHeader, DialogFooter, DialogTitle 
+import { InitialsAvatar } from "@/components/common/InitialsAvatar"
+import {
+  Dialog, DialogClose, DialogContent, DialogTrigger,
+  DialogDescription, DialogHeader, DialogFooter, DialogTitle,
 } from "./ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { CreateTeacherModal } from "./ui/CreateTeacherModal"
-import { BulkRegisterModal } from "./ui/BulkRegisterModal" 
+import { BulkRegisterModal } from "./ui/BulkRegisterModal"
 
-const Sidebar = () => {
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Administrador",
+  TEACHER: "Docente",
+  USER: "Lector",
+}
+
+type Props = { open: boolean; onClose: () => void }
+
+const Sidebar = ({ open, onClose }: Props) => {
   const userId = useAuthStore((s) => s.userId)
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
   const isLogged = useAuthStore((s) => s.isLoggedIn)
   const logoutStore = useAuthStore((s) => s.logout)
-  
   const navigate = useNavigate()
-  const [success, setSuccess] = useState(false)
-  // Se eliminó errorAlert porque no se estaba renderizando nada con él
-  const [open, setOpen] = useState(false)
+  const [projectCount, setProjectCount] = useState<number | null>(null)
 
-  const baseUrl = api.defaults.baseURL?.replace(/\/$/, '') || '';
-  const isAdmin = (user as any)?.role?.name === 'ADMIN';
+  const baseUrl = api.defaults.baseURL?.replace(/\/$/, "") || ""
+  const roleName: string | undefined = (user as any)?.role?.name
+  const isAdmin = roleName === "ADMIN"
+  const canCreate = isAdmin || roleName === "TEACHER"
 
   useEffect(() => {
     if (!isLogged || !userId) return
-    api.get(`/api/users/${userId}`)
-      .then((res) => { setUser(res.data) })
-      .catch((err) => { console.error("Sidebar error", err); })
-  }, [isLogged, userId, setUser]) 
+    api.get(`/api/users/${userId}`).then((res) => setUser(res.data)).catch(() => {})
+    api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
+  }, [isLogged, userId, setUser])
 
   const handleLogout = () => {
-    try {
-      localStorage.removeItem("token"); 
-      localStorage.removeItem("auth-storage");
-      logoutStore(); 
-      setSuccess(true);
-      setTimeout(() => { 
-        setSuccess(false); 
-        navigate("/login") 
-      }, 2000)
-    } catch (error) {
-      console.error("Error al cerrar sesión", error);
-    }
+    localStorage.removeItem("token")
+    localStorage.removeItem("auth-storage")
+    logoutStore()
+    navigate("/login")
   }
 
-  const profileImage = user?.image 
-    ? (user.image.startsWith('http') ? user.image : `${baseUrl}${user.image}`)
-    : avatar;
+  const image = user?.image ? (user.image.startsWith("http") ? user.image : `${baseUrl}${user.image}`) : null
 
   return (
     <>
-      <button
-        onClick={() => setOpen(!open)}
-        className="md:hidden fixed top-2 right-2 z-50 p-2 bg-gray-800/95 backdrop-blur-sm text-cyan-400 rounded-md border border-gray-700 shadow-2xl cursor-pointer active:scale-95 transition-all"
-      >
-        {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-30 md:hidden"
-          onClick={() => setOpen(false)}
-        ></div>
-      )}
+      {open && <div className="fixed inset-0 z-30 bg-slate-900/50 md:hidden" onClick={onClose} />}
 
       <aside
-        className={`fixed top-0 left-0 h-full bg-gray-900 text-gray-100 shadow-2xl transition-all duration-300 z-40 
-        ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 w-64 flex flex-col border-r border-gray-800`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 text-blue-100 transition-transform duration-200 md:translate-x-0 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        <div className="flex items-center gap-3 px-4 py-6 border-b border-gray-800">
-          <img 
-            src="https://eva.sudamericano.edu.ec/pluginfile.php/1/theme_moove/logo/1762397214/faviconSuda%20%281%29%20%281%29.png" 
-            alt="Logo ITS" 
-            className="w-10 h-10 object-contain"
-          />
-          <div className="flex flex-col">
-            <h1 className="text-white font-bold text-lg leading-tight">RepoDigital</h1>
-            <span className="text-cyan-500 text-[10px] font-bold tracking-widest uppercase">ITS Sudamericano</span>
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+          <img src="/its.png" alt="Logo ITS" className="size-9 rounded-lg bg-white p-1 object-contain" />
+          <div className="leading-tight">
+            <p className="text-base font-semibold text-white">RepoDigital</p>
+            <p className="text-[11px] text-blue-200">ITS Sudamericano</p>
           </div>
+          <button onClick={onClose} className="ml-auto rounded p-1 text-blue-200 hover:bg-white/10 md:hidden" aria-label="Cerrar menú">
+            <X className="size-5" />
+          </button>
         </div>
 
-        {isLogged && (
-          <div className="border-b border-gray-800 py-5 flex flex-col items-center">
-             <Link to="/profile" className="group cursor-pointer mb-3 relative">
-                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-800 transition-all group-hover:border-cyan-500/50">
-                  <img src={profileImage} alt="Perfil" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = avatar }} />
-                </div>
-             </Link>
-             <p className="font-semibold text-center px-2 text-gray-200">{user?.name || "Cargando..."}</p>
-             <p className="text-[11px] text-gray-500 font-normal text-center mt-1 break-all px-4">{user?.email || ""}</p>
+        <nav className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-5">
+          <div>
+            <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-blue-300">Espacio académico</p>
+            <div className="space-y-1">
+              <NavItem to="/dashboard" icon={LayoutDashboard} label="Inicio" onClick={onClose} />
+              <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
+              <NavItem to="/profile" icon={UserRound} label="Mi perfil" onClick={onClose} />
+            </div>
           </div>
-        )}
-
-        <nav className="flex flex-col gap-1 p-3 mt-4 flex-grow overflow-y-auto custom-scrollbar">
-          <NavItem to="/dashboard" icon={MiIconoPanel} label="Panel de Control" onClick={() => setOpen(false)} />
-          <NavItem to="/projects" icon={MiIconoProyectos} label="Proyectos" onClick={() => setOpen(false)} />
-          <NavItem to="/profile" icon={MiIconoPersonalizado} label="Perfil" onClick={() => setOpen(false)} />
 
           {isAdmin && (
-             <div className="pt-4 mt-4 border-t border-gray-800">
-                <p className="px-4 text-xs font-semibold text-gray-500 uppercase mb-2">Administración</p>
-                <div onClick={() => setOpen(false)}><CreateTeacherModal /></div>
-                <div onClick={() => setOpen(false)}><BulkRegisterModal /></div>
-             </div>
+            <div>
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-blue-300">Administración</p>
+              <div className="space-y-1" onClick={onClose}>
+                <CreateTeacherModal />
+                <BulkRegisterModal />
+              </div>
+            </div>
+          )}
+
+          {canCreate && (
+            <div className="rounded-xl bg-white/10 p-4">
+              <p className="text-sm font-semibold text-white">¿Una nueva iniciativa?</p>
+              <p className="mt-1 text-xs text-blue-200">Registra el proyecto y asigna las tecnologías.</p>
+              <Button
+                onClick={() => { onClose(); navigate("/projects?nuevo=1") }}
+                className="mt-3 h-9 w-full gap-1.5 bg-white text-brand-900 hover:bg-blue-50"
+              >
+                <Plus className="size-4" /> Registrar proyecto
+              </Button>
+            </div>
           )}
         </nav>
 
-        <div className="p-3 border-t border-gray-800">
-          {isLogged && (
+        {isLogged && (
+          <div className="flex items-center gap-3 border-t border-white/10 px-4 py-4">
+            <Link to="/profile" onClick={onClose} className="flex min-w-0 flex-1 items-center gap-3">
+              {image ? (
+                <img src={image} alt="Perfil" className="size-9 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = "none" }} />
+              ) : (
+                <InitialsAvatar name={user?.name} className="size-9 bg-white/15 text-white" />
+              )}
+              <span className="min-w-0 leading-tight">
+                <span className="block truncate text-sm font-medium text-white">{user?.name || "Cargando…"}</span>
+                <span className="block truncate text-[11px] text-blue-200">{ROLE_LABEL[roleName || ""] || ""}</span>
+              </span>
+            </Link>
+
             <Dialog>
               <DialogTrigger asChild>
-                <button className="flex items-center gap-3 p-3 w-full text-left rounded-lg text-red-400 hover:bg-red-950/30 transition-colors">
-                  <LogOut className="w-5 h-5" />
-                  <span>Cerrar Sesión</span>
+                <button className="rounded-md p-2 text-blue-200 hover:bg-white/10 hover:text-white" aria-label="Cerrar sesión" title="Cerrar sesión">
+                  <LogOut className="size-4" />
                 </button>
               </DialogTrigger>
-              <DialogContent className="bg-gray-800 border-gray-700">
+              <DialogContent>
                 <DialogHeader>
-                  <DialogTitle className="text-white">Confirmar Salida</DialogTitle>
-                  <DialogDescription className="text-gray-300">¿Deseas cerrar tu sesión?</DialogDescription>
+                  <DialogTitle>Cerrar sesión</DialogTitle>
+                  <DialogDescription>¿Deseas salir de tu cuenta?</DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="gap-2">
-                  <DialogClose asChild><Button variant="ghost" className="text-white">Cancelar</Button></DialogClose>
-                  <Button className="bg-red-600 hover:bg-red-700 text-white" onClick={handleLogout}>Cerrar Sesión</Button>
+                  <DialogClose asChild><Button variant="ghost">Cancelar</Button></DialogClose>
+                  <Button variant="destructive" onClick={handleLogout}>Cerrar sesión</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
-
-      {success && (
-        <Alert className="fixed top-4 right-4 z-[100] w-auto bg-green-600 text-white shadow-2xl animate-in slide-in-from-top-full border-none">
-          <CheckCircle2Icon className="h-4 w-4" />
-          <AlertTitle>¡Éxito!</AlertTitle>
-          <AlertDescription>Sesión cerrada.</AlertDescription>
-        </Alert>
-      )}
     </>
   )
 }
 
-// Icono nuevo para Panel de Control
-const MiIconoPanel = ({ className }: { className?: string }) => (
-  <div 
-    className={`${className} bg-current scale-125`} 
-    style={{ 
-      WebkitMaskImage: 'url(/image2.png)', 
-      WebkitMaskSize: 'contain', 
-      WebkitMaskRepeat: 'no-repeat', 
-      WebkitMaskPosition: 'center',
-      maskImage: 'url(/image2.png)',
-      maskSize: 'contain',
-      maskRepeat: 'no-repeat',
-      maskPosition: 'center'
-    }} 
-  />
-);
-
-// Icono para Perfil
-const MiIconoPersonalizado = ({ className }: { className?: string }) => (
-  <div 
-    className={`${className} bg-current scale-150`} 
-    style={{ 
-      WebkitMaskImage: 'url(/image.png)', 
-      WebkitMaskSize: 'contain', 
-      WebkitMaskRepeat: 'no-repeat', 
-      WebkitMaskPosition: 'center',
-      maskImage: 'url(/image.png)',
-      maskSize: 'contain',
-      maskRepeat: 'no-repeat',
-      maskPosition: 'center'
-    }} 
-  />
-);
-
-// Icono nuevo para Proyectos
-const MiIconoProyectos = ({ className }: { className?: string }) => (
-  <div 
-    className={`${className} bg-current scale-150`} 
-    style={{ 
-      WebkitMaskImage: 'url(/image1.png)', 
-      WebkitMaskSize: 'contain', 
-      WebkitMaskRepeat: 'no-repeat', 
-      WebkitMaskPosition: 'center',
-      maskImage: 'url(/image1.png)',
-      maskSize: 'contain',
-      maskRepeat: 'no-repeat',
-      maskPosition: 'center'
-    }} 
-  />
-);
-
-const NavItem = ({ to, icon: Icon, label, onClick }: { to: string; icon: any; label: string; onClick?: () => void }) => (
+const NavItem = ({ to, icon: Icon, label, count, onClick }: {
+  to: string; icon: any; label: string; count?: number | null; onClick?: () => void
+}) => (
   <NavLink
     to={to}
     onClick={onClick}
     className={({ isActive }) =>
-      `flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
-        isActive ? "bg-cyan-600/20 text-cyan-400 border-r-4 border-cyan-500" : "hover:bg-gray-800/50 text-gray-400"
+      `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
+        isActive ? "bg-white/15 font-medium text-white" : "text-blue-100 hover:bg-white/10 hover:text-white"
       }`
     }
   >
-    <Icon className="w-5 h-5" />
-    <span className="font-medium">{label}</span>
+    <Icon className="size-[18px]" />
+    <span className="flex-1">{label}</span>
+    {typeof count === "number" && (
+      <span className="rounded-full bg-white/15 px-2 py-0.5 text-[11px] font-medium text-white">{count}</span>
+    )}
   </NavLink>
 )
 
-export default Sidebar;
+export default Sidebar
