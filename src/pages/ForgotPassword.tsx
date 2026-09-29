@@ -39,6 +39,7 @@ export default function ForgotPassword() {
       // TEXTO EXACTO SOLICITADO
       setMessage("Se envió el enlace de recuperación a tu correo");
     } catch (err: any) {
+      if (err.response?.status === 429) { setError("Demasiados intentos. Espera un minuto."); setLoading(false); return; }
       const backendMsg = err.response?.data?.message || "Ocurrió un error. Intenta de nuevo.";
       // Si el backend dice que no se encuentra, mostramos "Correo incorrecto" o el mensaje del server
       setError(backendMsg.toLowerCase().includes("encontrado") ? "Correo incorrecto" : backendMsg);

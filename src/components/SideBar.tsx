@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
 import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus } from "lucide-react"
-import api from "@/api/axios"
+import api, { clearSession } from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import {
@@ -42,8 +42,10 @@ const Sidebar = ({ open, onClose }: Props) => {
   }, [isLogged, userId, setUser])
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("auth-storage")
+    // Revoca la sesión en el servidor (best-effort) y limpia todo lo local
+    api.post("/api/auth/logout").catch(() => {}).finally(() => {
+      clearSession()
+    })
     logoutStore()
     navigate("/login")
   }

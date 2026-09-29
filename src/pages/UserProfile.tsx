@@ -1,4 +1,4 @@
-import api from "@/api/axios"
+import api, { saveTokens } from "@/api/axios"
 import { useEffect, useState, useRef } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -190,10 +190,12 @@ const UserProfile = () => {
     
     setLoading(true)
     try {
-      await api.patch(`/api/users/${userId}/change-password`, { 
+      const pwRes = await api.patch(`/api/users/${userId}/change-password`, { 
         oldPassword,
         newPassword
       })
+      // El servidor revoca las sesiones anteriores y devuelve tokens nuevos
+      if (pwRes.data?.accessToken) saveTokens(pwRes.data.accessToken, pwRes.data.refreshToken)
       
       setIsPasswordDialogOpen(false)
       setOldPassword("")

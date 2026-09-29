@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useNavigate, Link } from "react-router-dom"
-import api from "@/api/axios" 
+import api, { saveTokens } from "@/api/axios" 
 import { useAuthStore } from "@/store/authStore"
 import { Eye, EyeOff, AlertCircle } from "lucide-react"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
@@ -58,9 +58,9 @@ const LoginPage = () => {
       const res = await api.post("/api/auth/login", { email, password })
       
       // === CAMBIO AQUÍ: Capturamos needsPasswordChange del backend ===
-      const { accessToken, userId, userRole, needsPasswordChange } = res.data
+      const { accessToken, refreshToken, userId, userRole, needsPasswordChange } = res.data
 
-      localStorage.setItem("token", accessToken)
+      saveTokens(accessToken, refreshToken)
       localStorage.setItem("id", userId)
       localStorage.setItem("role", userRole)
       localStorage.setItem("needsPasswordChange", String(needsPasswordChange)) // Guardamos la bandera
@@ -88,6 +88,12 @@ const LoginPage = () => {
       }
 
       const lowerMsg = backendMsg.toLowerCase();
+
+      if (err.response?.status === 429) {
+        setGeneralError("Demasiados intentos. Espera un minuto e inténtalo de nuevo.")
+        setLoading(false)
+        return
+      }
 
       // 3. CLASIFICACIÓN DE ERRORES (Solo se muestran debajo del input respectivo)
       if (lowerMsg.includes("no registrado")) {
