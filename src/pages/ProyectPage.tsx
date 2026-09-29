@@ -171,6 +171,7 @@ const ProyectPage = () => {
   const [manageSkillSearch, setManageSkillSearch] = useState("")
   
   const [filterStatus, setFilterStatus] = useState("Todo");
+  const [filterCareer, setFilterCareer] = useState("");
   const [filterStatusUserProjects, setFilterStatusUserProjects] = useState("Todo")
   
   // COMENTADO: Quitamos el estado pendiente del filtro de opciones
@@ -868,6 +869,19 @@ const ProyectPage = () => {
                 </div>
               </div>
               
+              <div className="space-y-1">
+                <h5 className="text-xs font-semibold text-brand-700/80 uppercase tracking-wide">Carrera</h5>
+                <select
+                  value={filterCareer}
+                  onChange={(e) => setFilterCareer(e.target.value)}
+                  aria-label="Filtrar por carrera"
+                  className="h-7 max-w-[220px] rounded-full border border-slate-300 bg-white px-3 text-xs text-slate-700 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20"
+                >
+                  <option value="">Todas</option>
+                  {careers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </div>
+
               {isAdminOrTeacher && (
                 <div className="space-y-1">
                   <h5 className="text-xs font-semibold text-brand-700/80 uppercase tracking-wide">Origen</h5>
@@ -953,7 +967,8 @@ const ProyectPage = () => {
                         // if (!isAdminOrTeacher && !isOwner && p.status === "pendiente") return false;
 
                         const matchesPeriod = !selectedPeriod || p.academic_period === selectedPeriod;
-                        return matchesSearch && matchesStatus && matchesUser && matchesPeriod;
+                        const matchesCareer = !filterCareer || p.careerId === filterCareer;
+                        return matchesSearch && matchesStatus && matchesUser && matchesPeriod && matchesCareer;
                       }).map((p) => {
                         const careerName = careers.find((c) => c.id === p.careerId)?.name;
                         const isOwner = p.createdBy === userId || userProjects.some((up) => up.id === p.id);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
+import type { LucideIcon } from "lucide-react"
 import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus } from "lucide-react"
 import api from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
@@ -30,7 +31,7 @@ const Sidebar = ({ open, onClose }: Props) => {
   const [projectCount, setProjectCount] = useState<number | null>(null)
 
   const baseUrl = api.defaults.baseURL?.replace(/\/$/, "") || ""
-  const roleName: string | undefined = (user as any)?.role?.name
+  const roleName: string | undefined = user?.role?.name
   const isAdmin = roleName === "ADMIN"
   const canCreate = isAdmin || roleName === "TEACHER"
 
@@ -142,7 +143,7 @@ const Sidebar = ({ open, onClose }: Props) => {
 }
 
 const NavItem = ({ to, icon: Icon, label, count, onClick }: {
-  to: string; icon: any; label: string; count?: number | null; onClick?: () => void
+  to: string; icon: LucideIcon; label: string; count?: number | null; onClick?: () => void
 }) => (
   <NavLink
     to={to}

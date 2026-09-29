@@ -8,6 +8,7 @@ interface User {
   roleId: string
   image?: string
   careerId?: string
+  role?: { id: string; name: string }
 }
 
 interface AuthState {

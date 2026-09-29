@@ -18,7 +18,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const [query, setQuery] = useState(params.get("q") || "")
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const roleName = (user as any)?.role?.name
+  const roleName = user?.role?.name
   const canCreate = roleName === "ADMIN" || roleName === "TEACHER"
 
   useEffect(() => {
