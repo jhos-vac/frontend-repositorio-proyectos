@@ -3,8 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1e3a8a" />
+    <meta name="theme-color" content="#041517" />
 
+    <script>
+      // Aplica el tema antes de pintar para evitar el parpadeo blanco
+      (function () {
+        try {
+          var m = localStorage.getItem("theme") || "system";
+          var dark = m === "dark" || (m === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {}
+      })();
+    </script>
     <title>RepoDigital ITS - Proyectos</title>
     
     <meta name="description" content="Repositorio Digital del Instituto Tecnológico Superior Sudamericano. Consulta proyectos académicos realizados por los estudiantes." />

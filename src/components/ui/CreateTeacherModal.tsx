@@ -173,7 +173,7 @@ export function CreateTeacherModal() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="ghost" className="w-full justify-start h-10 rounded-lg font-normal text-blue-100 hover:bg-white/10 hover:text-white gap-3 cursor-pointer">
+          <Button variant="ghost" className="w-full justify-start h-10 rounded-lg font-normal text-brand-100 hover:bg-white/10 hover:text-white gap-3 cursor-pointer">
             <UserPlus className="w-5 h-5" />
             <span className="font-medium">Registrar Docente</span>
           </Button>

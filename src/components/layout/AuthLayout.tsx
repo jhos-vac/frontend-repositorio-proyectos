@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { ThemeToggle } from "@/components/common/ThemeToggle"
 import { FolderKanban, GitBranch, ShieldCheck } from "lucide-react"
 
 const POINTS = [
@@ -11,14 +12,14 @@ const POINTS = [
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="grid min-h-screen bg-white lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-900 p-10 text-blue-100 lg:flex">
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-900 p-10 text-brand-100 lg:flex">
         <div className="absolute -right-24 -top-24 size-72 rounded-full bg-white/5" />
         <div className="absolute -bottom-32 -left-16 size-96 rounded-full bg-white/5" />
         <div className="relative flex items-center gap-3">
           <img src="/its.png" alt="Logo ITS" className="size-11 rounded-xl bg-white p-1.5 object-contain" />
           <div className="leading-tight">
             <p className="text-lg font-semibold text-white">RepoDigital</p>
-            <p className="text-xs text-blue-200">ITS Sudamericano</p>
+            <p className="text-xs text-brand-200">ITS Sudamericano</p>
           </div>
         </div>
 
@@ -38,10 +39,11 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           </ul>
         </div>
 
-        <p className="relative text-xs text-blue-300">Instituto Tecnológico Superior Sudamericano</p>
+        <p className="relative text-xs text-brand-300">Instituto Tecnológico Superior Sudamericano</p>
       </aside>
 
-      <main className="flex items-center justify-center p-6 sm:p-10">
+      <main className="relative flex items-center justify-center bg-white p-6 sm:p-10">
+        <ThemeToggle className="absolute right-4 top-4" />
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-3 lg:hidden">
             <img src="/its.png" alt="Logo ITS" className="size-10 object-contain" />

@@ -8,6 +8,7 @@ interface User {
   roleId: string
   image?: string
   careerId?: string
+  level?: number | null
   role?: { id: string; name: string }
 }
 

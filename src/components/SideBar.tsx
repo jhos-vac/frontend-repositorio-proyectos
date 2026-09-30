@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
-import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus } from "lucide-react"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch } from "lucide-react"
 import api, { clearSession } from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
@@ -16,7 +16,7 @@ import { BulkRegisterModal } from "./ui/BulkRegisterModal"
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Administrador",
   TEACHER: "Docente",
-  USER: "Lector",
+  USER: "Estudiante",
 }
 
 type Props = { open: boolean; onClose: () => void }
@@ -33,7 +33,8 @@ const Sidebar = ({ open, onClose }: Props) => {
   const baseUrl = api.defaults.baseURL?.replace(/\/$/, "") || ""
   const roleName: string | undefined = user?.role?.name
   const isAdmin = roleName === "ADMIN"
-  const canCreate = isAdmin || roleName === "TEACHER"
+  const isStaff = isAdmin || roleName === "TEACHER"
+  const canCreate = !!roleName
 
   useEffect(() => {
     if (!isLogged || !userId) return
@@ -57,7 +58,7 @@ const Sidebar = ({ open, onClose }: Props) => {
       {open && <div className="fixed inset-0 z-30 bg-slate-900/50 md:hidden" onClick={onClose} />}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 text-blue-100 transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-brand-900 text-brand-100 transition-transform duration-200 md:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -65,27 +66,33 @@ const Sidebar = ({ open, onClose }: Props) => {
           <img src="/its.png" alt="Logo ITS" className="size-9 rounded-lg bg-white p-1 object-contain" />
           <div className="leading-tight">
             <p className="text-base font-semibold text-white">RepoDigital</p>
-            <p className="text-[11px] text-blue-200">ITS Sudamericano</p>
+            <p className="text-[11px] text-brand-200">ITS Sudamericano</p>
           </div>
-          <button onClick={onClose} className="ml-auto rounded p-1 text-blue-200 hover:bg-white/10 md:hidden" aria-label="Cerrar menú">
+          <button onClick={onClose} className="ml-auto rounded p-1 text-brand-200 hover:bg-white/10 md:hidden" aria-label="Cerrar menú">
             <X className="size-5" />
           </button>
         </div>
 
         <nav className="custom-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-5">
           <div>
-            <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-blue-300">Espacio académico</p>
+            <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Espacio académico</p>
             <div className="space-y-1">
               <NavItem to="/dashboard" icon={LayoutDashboard} label="Inicio" onClick={onClose} />
               <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
+              {isStaff && <NavItem to="/revision" icon={ClipboardCheck} label="Revisión" onClick={onClose} />}
               <NavItem to="/profile" icon={UserRound} label="Mi perfil" onClick={onClose} />
             </div>
           </div>
 
           {isAdmin && (
             <div>
-              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-blue-300">Administración</p>
-              <div className="space-y-1" onClick={onClose}>
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Administración</p>
+              <div className="space-y-1">
+                <NavItem to="/admin/usuarios" icon={Users} label="Usuarios y roles" onClick={onClose} />
+                <NavItem to="/admin/asignaciones" icon={Link2} label="Docentes por nivel" onClick={onClose} />
+                <NavItem to="/admin/proyectos" icon={GitBranch} label="Gestión de proyectos" onClick={onClose} />
+              </div>
+              <div className="mt-1 space-y-1" onClick={onClose}>
                 <CreateTeacherModal />
                 <BulkRegisterModal />
               </div>
@@ -95,7 +102,7 @@ const Sidebar = ({ open, onClose }: Props) => {
           {canCreate && (
             <div className="rounded-xl bg-white/10 p-4">
               <p className="text-sm font-semibold text-white">¿Una nueva iniciativa?</p>
-              <p className="mt-1 text-xs text-blue-200">Registra el proyecto y asigna las tecnologías.</p>
+              <p className="mt-1 text-xs text-brand-200">Registra el proyecto y asigna las tecnologías.</p>
               <Button
                 onClick={() => { onClose(); navigate("/projects?nuevo=1") }}
                 className="mt-3 h-9 w-full gap-1.5 bg-white text-brand-900 hover:bg-blue-50"
@@ -116,13 +123,13 @@ const Sidebar = ({ open, onClose }: Props) => {
               )}
               <span className="min-w-0 leading-tight">
                 <span className="block truncate text-sm font-medium text-white">{user?.name || "Cargando…"}</span>
-                <span className="block truncate text-[11px] text-blue-200">{ROLE_LABEL[roleName || ""] || ""}</span>
+                <span className="block truncate text-[11px] text-brand-200">{ROLE_LABEL[roleName || ""] || ""}</span>
               </span>
             </Link>
 
             <Dialog>
               <DialogTrigger asChild>
-                <button className="rounded-md p-2 text-blue-200 hover:bg-white/10 hover:text-white" aria-label="Cerrar sesión" title="Cerrar sesión">
+                <button className="rounded-md p-2 text-brand-200 hover:bg-white/10 hover:text-white" aria-label="Cerrar sesión" title="Cerrar sesión">
                   <LogOut className="size-4" />
                 </button>
               </DialogTrigger>
@@ -152,7 +159,7 @@ const NavItem = ({ to, icon: Icon, label, count, onClick }: {
     onClick={onClick}
     className={({ isActive }) =>
       `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
-        isActive ? "bg-white/15 font-medium text-white" : "text-blue-100 hover:bg-white/10 hover:text-white"
+        isActive ? "bg-white/15 font-medium text-white" : "text-brand-100 hover:bg-white/10 hover:text-white"
       }`
     }
   >

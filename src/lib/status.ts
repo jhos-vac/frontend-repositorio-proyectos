@@ -53,3 +53,31 @@ export function initials(name?: string | null): string {
   const parts = name.trim().split(/\s+/)
   return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?"
 }
+
+/* ---------- Revisión del docente (flujo de aprobación) ---------- */
+export type ReviewStatus = "pending" | "approved" | "rejected"
+
+export const REVIEW_LABEL: Record<ReviewStatus, string> = {
+  pending: "Pendiente",
+  approved: "Aprobado",
+  rejected: "Rechazado",
+}
+
+export const REVIEW_STYLE: Record<ReviewStatus, { badge: string; dot: string }> = {
+  pending: { badge: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500" },
+  approved: { badge: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" },
+  rejected: { badge: "bg-red-50 text-red-700 ring-red-200", dot: "bg-red-500" },
+}
+
+export function normalizeReview(s?: string | null): ReviewStatus {
+  return s === "pending" || s === "rejected" ? s : "approved"
+}
+
+export const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Administrador",
+  TEACHER: "Docente",
+  USER: "Estudiante",
+}
+
+export const LEVELS = [1, 2, 3, 4] as const
+export const levelLabel = (n?: number | null) => (n ? `Nivel ${n}` : "Sin nivel")

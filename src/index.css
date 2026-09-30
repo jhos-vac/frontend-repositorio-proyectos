@@ -3,53 +3,122 @@
 
 /*
   Identidad visual RepoDigital / Semillero.
-  Azul corporativo provisional (escala azul estándar) hasta confirmar el código exacto
-  del sistema de titulación: basta cambiar --brand-* para actualizar toda la interfaz.
+  Color corporativo: #041517 (brand-900). Todos los tonos de la marca derivan de ese verde azulado muy oscuro.
+  Cambiar la escala --brand-* actualiza toda la interfaz. Los neutros (--slate-*) llevan el mismo matiz.
+  Modo oscuro: clase "dark" en <html>; invierte los neutros y ajusta los acentos (ver bloque .dark).
 */
 :root {
-  --brand-50: #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-200: #bfdbfe;
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
-  --brand-800: #1e40af;
-  --brand-900: #1e3a8a;
-  --brand-950: #172554;
+  /* Escala de marca (estática en ambos modos) */
+  --brand-50: #eef7f7;
+  --brand-100: #d7ecec;
+  --brand-200: #b3d9da;
+  --brand-300: #86bfc1;
+  --brand-400: #56a0a4;
+  --brand-500: #2f8187;
+  --brand-600: #1e666c;
+  --brand-700: #144d52;
+  --brand-800: #0b3337;
+  --brand-900: #041517; /* color corporativo */
+  --brand-950: #020b0c;
 
+  /* Neutros con matiz de la marca (modo claro) */
+  --slate-50: #f4f8f8;
+  --slate-100: #e9f0f0;
+  --slate-200: #d5e1e2;
+  --slate-300: #b7c8ca;
+  --slate-400: #8ea3a6;
+  --slate-500: #667c80;
+  --slate-600: #4c6266;
+  --slate-700: #37494d;
+  --slate-800: #1f3034;
+  --slate-900: #0c1f22;
+  --slate-950: #041517;
+
+  --surface: #ffffff;
   --radius: 0.75rem;
 
   /* Variables que consumen los componentes shadcn */
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #f3f8f8;
+  --foreground: #0c1f22;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #0c1f22;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --popover-foreground: #0c1f22;
   --primary: var(--brand-700);
   --primary-foreground: #ffffff;
-  --secondary: #eff6ff;
+  --secondary: var(--brand-50);
   --secondary-foreground: var(--brand-900);
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #eff6ff;
+  --muted: #e9f0f0;
+  --muted-foreground: #667c80;
+  --accent: var(--brand-50);
   --accent-foreground: var(--brand-900);
   --destructive: #dc2626;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
+  --border: #d5e1e2;
+  --input: #b7c8ca;
   --ring: var(--brand-600);
+}
+
+/* ---------- Modo oscuro: fondo = color corporativo #041517 ---------- */
+.dark {
+  --slate-50: #0b262a;
+  --slate-100: #103136;
+  --slate-200: #17393e;
+  --slate-300: #24494f;
+  --slate-400: #6f9498;
+  --slate-500: #8fb0b3;
+  --slate-600: #a9c6c8;
+  --slate-700: #c2d8da;
+  --slate-800: #d9e8e9;
+  --slate-900: #e9f3f3;
+  --slate-950: #f4fafa;
+
+  --surface: #0a2226;
+
+  --background: #041517;
+  --foreground: #e9f3f3;
+  --card: #0a2226;
+  --card-foreground: #e9f3f3;
+  --popover: #0a2226;
+  --popover-foreground: #e9f3f3;
+  --primary: var(--brand-600);
+  --primary-foreground: #ffffff;
+  --secondary: #0f3035;
+  --secondary-foreground: #e9f3f3;
+  --muted: #0d2b30;
+  --muted-foreground: #8fb0b3;
+  --accent: #0f3035;
+  --accent-foreground: #e9f3f3;
+  --destructive: #ef4444;
+  --border: #17393e;
+  --input: #24494f;
+  --ring: var(--brand-400);
 }
 
 @theme inline {
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
   --color-brand-700: var(--brand-700);
   --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
   --color-brand-950: var(--brand-950);
+
+  /* Los neutros de Tailwind (slate) pasan por variables para poder invertirse en modo oscuro */
+  --color-slate-50: var(--slate-50);
+  --color-slate-100: var(--slate-100);
+  --color-slate-200: var(--slate-200);
+  --color-slate-300: var(--slate-300);
+  --color-slate-400: var(--slate-400);
+  --color-slate-500: var(--slate-500);
+  --color-slate-600: var(--slate-600);
+  --color-slate-700: var(--slate-700);
+  --color-slate-800: var(--slate-800);
+  --color-slate-900: var(--slate-900);
+  --color-slate-950: var(--slate-950);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -82,9 +151,8 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html {
-    color-scheme: light;
-  }
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     margin: 0;
@@ -95,3 +163,77 @@
 /* Barra de desplazamiento discreta (usada en el menú lateral) */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.18); border-radius: 9999px; }
+
+
+/* ---------- Ajustes de modo oscuro para utilidades de color fijas ---------- */
+.dark .bg-white,
+.dark .hover\:bg-white:hover,
+.dark .focus\:bg-white:focus { background-color: var(--surface); }
+.dark .border-white { border-color: var(--surface); }
+
+/* Acentos de marca: en oscuro se aclaran para leerse sobre fondos oscuros */
+.dark .text-brand-600,
+.dark .text-brand-700,
+.dark .text-brand-800,
+.dark .text-brand-900 { color: var(--brand-300); }
+.dark .hover\:text-brand-700:hover,
+.dark .hover\:text-brand-800:hover { color: var(--brand-200); }
+.dark .bg-brand-50 { background-color: rgb(86 160 164 / 0.12); }
+.dark .bg-brand-100 { background-color: rgb(86 160 164 / 0.2); }
+.dark .hover\:bg-brand-50:hover { background-color: rgb(86 160 164 / 0.18); }
+.dark .border-brand-100,
+.dark .border-brand-200 { border-color: rgb(86 160 164 / 0.35); }
+.dark .bg-brand-700 { background-color: var(--brand-600); }
+.dark .bg-brand-800,
+.dark .hover\:bg-brand-800:hover { background-color: var(--brand-700); }
+.dark .hover\:bg-brand-700:hover { background-color: var(--brand-500); }
+
+/* Semánticos (estados, errores, éxito) */
+.dark .bg-red-50, .dark .hover\:bg-red-50:hover { background-color: rgb(239 68 68 / 0.14); }
+.dark .bg-green-50, .dark .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14); }
+.dark .bg-violet-50 { background-color: rgb(139 92 246 / 0.16); }
+.dark .text-red-600, .dark .text-red-500, .dark .hover\:text-red-600:hover { color: #f87171; }
+.dark .text-green-600 { color: #4ade80; }
+.dark .text-emerald-600, .dark .text-emerald-700, .dark .text-emerald-800 { color: #6ee7b7; }
+.dark .text-violet-600, .dark .text-violet-700, .dark .text-violet-800 { color: #c4b5fd; }
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800, .dark .text-orange-600 { color: #fcd34d; }
+.dark .text-rose-800 { color: #fda4af; }
+.dark .text-cyan-800 { color: #67e8f9; }
+.dark .text-blue-800 { color: #93c5fd; }
+.dark .border-red-200 { border-color: rgb(239 68 68 / 0.35); }
+.dark .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.3); }
+.dark .ring-violet-200 { --tw-ring-color: rgb(139 92 246 / 0.3); }
+.dark .ring-slate-200 { --tw-ring-color: var(--slate-300); }
+.dark .bg-white\/90 { background-color: rgb(10 34 38 / 0.9); }
+
+/* Fondos tenues de color (chips, avatares, iconos): translúcidos en oscuro */
+.dark .bg-amber-50 { background-color: rgb(245 158 11 / 0.14); }
+.dark .bg-amber-100 { background-color: rgb(245 158 11 / 0.22); }
+.dark .bg-orange-50 { background-color: rgb(249 115 22 / 0.14); }
+.dark .bg-orange-100 { background-color: rgb(249 115 22 / 0.22); }
+.dark .bg-rose-50 { background-color: rgb(244 63 94 / 0.14); }
+.dark .bg-rose-100 { background-color: rgb(244 63 94 / 0.22); }
+.dark .bg-sky-50 { background-color: rgb(14 165 233 / 0.14); }
+.dark .bg-sky-100 { background-color: rgb(14 165 233 / 0.22); }
+.dark .bg-blue-50 { background-color: rgb(59 130 246 / 0.14); }
+.dark .bg-blue-100 { background-color: rgb(59 130 246 / 0.22); }
+.dark .bg-cyan-50 { background-color: rgb(6 182 212 / 0.14); }
+.dark .bg-cyan-100 { background-color: rgb(6 182 212 / 0.22); }
+.dark .bg-emerald-50 { background-color: rgb(16 185 129 / 0.14); }
+.dark .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22); }
+.dark .bg-green-50 { background-color: rgb(34 197 94 / 0.14); }
+.dark .bg-green-100 { background-color: rgb(34 197 94 / 0.22); }
+.dark .bg-red-50 { background-color: rgb(239 68 68 / 0.14); }
+.dark .bg-red-100 { background-color: rgb(239 68 68 / 0.22); }
+.dark .bg-violet-50 { background-color: rgb(139 92 246 / 0.14); }
+.dark .bg-violet-100 { background-color: rgb(139 92 246 / 0.22); }
+.dark .bg-indigo-50 { background-color: rgb(99 102 241 / 0.14); }
+.dark .bg-indigo-100 { background-color: rgb(99 102 241 / 0.22); }
+.dark .bg-yellow-50 { background-color: rgb(234 179 8 / 0.14); }
+.dark .bg-yellow-100 { background-color: rgb(234 179 8 / 0.22); }
+.dark .group:hover .group-hover\:text-brand-700 { color: var(--brand-200); }
+.dark .group:hover .group-hover\:text-emerald-600 { color: #6ee7b7; }
+.dark .hover\:bg-brand-600:hover { background-color: var(--brand-500); }
+.dark .text-blue-700, .dark .text-blue-800 { color: #93c5fd; }
+.dark .text-purple-700, .dark .text-purple-800 { color: #d8b4fe; }
+.dark .bg-purple-50, .dark .bg-blue-50 { background-color: rgb(255 255 255 / 0.06); }

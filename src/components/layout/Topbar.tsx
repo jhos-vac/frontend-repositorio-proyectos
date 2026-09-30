@@ -5,6 +5,7 @@ import api from "@/api/axios"
 import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/store/authStore"
 import { usePeriodStore } from "@/store/periodStore"
+import { ThemeToggle } from "@/components/common/ThemeToggle"
 
 type Period = { id: string; name: string }
 
@@ -19,7 +20,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const roleName = user?.role?.name
-  const canCreate = roleName === "ADMIN" || roleName === "TEACHER"
+  const canCreate = !!roleName // estudiantes también registran proyectos (quedan pendientes de revisión)
 
   useEffect(() => {
     api.get("/api/period").then((res) => setPeriods(res.data || [])).catch(() => setPeriods([]))
@@ -83,6 +84,8 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
             ))}
           </select>
         </label>
+
+        <ThemeToggle />
 
         {canCreate && (
           <Button

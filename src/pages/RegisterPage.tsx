@@ -28,6 +28,7 @@ const RegisterPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [name, setName] = useState('')
   const [careerId, setCareerId] = useState('')
+  const [level, setLevel] = useState('')
   
   // Estados de interfaz
   const [loading, setLoading] = useState(false)
@@ -98,6 +99,10 @@ const RegisterPage = () => {
       alert("Por favor, selecciona una carrera académica.");
       return;
     }
+    if (!level) {
+      alert("Por favor, selecciona tu nivel (1 a 4).");
+      return;
+    }
 
     setLoading(true) 
     
@@ -106,7 +111,8 @@ const RegisterPage = () => {
         name,
         email,
         password,
-        careerId
+        careerId,
+        level: Number(level)
       })
       
       // MOSTRAR MENSAJE DE ÉXITO
@@ -261,6 +267,22 @@ const RegisterPage = () => {
               <option value="">Selecciona tu carrera...</option> 
               {careers.map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* NIVEL */}
+          <div className="space-y-2">
+            <Label>Nivel</Label>
+            <select
+              required
+              className="w-full p-2 rounded-md bg-slate-100 text-slate-900 border border-slate-300 focus:border-brand-600 focus:outline-none text-sm"
+              value={level}
+              onChange={(e) => setLevel(e.target.value)}
+            >
+              <option value="">Selecciona tu nivel...</option>
+              {[1, 2, 3, 4].map(n => (
+                <option key={n} value={n}>Nivel {n}</option>
               ))}
             </select>
           </div>
