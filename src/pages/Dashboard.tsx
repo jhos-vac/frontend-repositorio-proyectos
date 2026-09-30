@@ -10,7 +10,7 @@ import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import { ProgressBar } from "@/components/common/ProgressBar"
 import { EmptyState } from "@/components/common/EmptyState"
 import { normalizeStatus, projectProgress } from "@/lib/status"
-import { greeting, timeAgo, formatDate } from "@/lib/format"
+import { greeting, timeAgo } from "@/lib/format"
 
 type Project = {
   id: string
@@ -58,12 +58,12 @@ const Dashboard = () => {
     return { total: visible.length, active, done }
   }, [visible])
 
-  // Proyectos en curso con fecha de cierre más próxima
+  // Proyectos en curso más recientes
   const featured = useMemo(
     () =>
       visible
         .filter((p) => normalizeStatus(p.status, p.startDate, p.endDate) === "en-progreso")
-        .sort((a, b) => (a.endDate ? new Date(a.endDate).getTime() : Infinity) - (b.endDate ? new Date(b.endDate).getTime() : Infinity))
+        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
         .slice(0, 2),
     [visible]
   )
@@ -110,17 +110,17 @@ const Dashboard = () => {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Proyectos registrados" value={stats.total} icon={FolderKanban} onClick={() => navigate("/projects")} />
-        <StatCard label="En progreso" value={stats.active} icon={PlayCircle} tone="emerald" hint="Dentro de sus fechas" />
-        <StatCard label="Completados" value={stats.done} icon={CheckCircle2} tone="violet" hint="Con fecha de cierre cumplida" />
+        <StatCard label="En progreso" value={stats.active} icon={PlayCircle} tone="emerald" hint="Proyectos activos" />
+        <StatCard label="Completados" value={stats.done} icon={CheckCircle2} tone="violet" hint="Proyectos finalizados" />
         <StatCard label="Tecnologías" value={skillsTotal} icon={Cpu} tone="amber" hint="En el catálogo" />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="space-y-8 min-w-0">
           <section>
-            <SectionHeader eyebrow="En foco" title="Proyectos próximos a cerrar" href="/projects" link="Ver todos los proyectos" />
+            <SectionHeader eyebrow="En foco" title="Proyectos en curso" href="/projects" link="Ver todos los proyectos" />
             {featured.length === 0 ? (
-              <EmptyState icon={FolderOpen} title="No hay proyectos en progreso" description="Cuando un proyecto tenga fechas vigentes aparecerá aquí." />
+              <EmptyState icon={FolderOpen} title="No hay proyectos en progreso" description="Cuando haya proyectos activos aparecerán aquí." />
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {featured.map((p) => {
@@ -143,7 +143,7 @@ const Dashboard = () => {
                         <InitialsAvatar name={p.user?.name} />
                         <div className="min-w-0 flex-1 leading-tight">
                           <p className="truncate text-sm text-slate-800">{p.user?.name || "Sin responsable"}</p>
-                          <p className="text-[11px] text-slate-500">Cierra: {formatDate(p.endDate)}</p>
+                          <p className="text-[11px] text-slate-500">{p.academic_period || "Sin período"}</p>
                         </div>
                         {pct !== null && <span className="text-xs font-medium text-slate-600">{pct}%</span>}
                       </div>

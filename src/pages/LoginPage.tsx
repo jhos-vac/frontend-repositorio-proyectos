@@ -68,8 +68,8 @@ const LoginPage = () => {
       login(accessToken, userId, userRole)
       
       // === CAMBIO AQUÍ: Redirección condicional de seguridad ===
-      if (needsPasswordChange && userRole === 'TEACHER') {
-        // Obligamos al docente a cambiar su contraseña
+      if (needsPasswordChange) {
+        // Clave temporal (alta hecha por el admin o reinicio): debe cambiarla antes de continuar
         navigate("/profile?forcePasswordChange=true")
       } else {
         // Alumnos y administradores pasan directo

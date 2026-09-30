@@ -10,5 +10,9 @@ export function ProtectedRoute() {
   if (!isLoggedIn && !hasToken) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
   }
+  // Clave temporal: hasta cambiarla solo se puede usar el perfil
+  if (localStorage.getItem("needsPasswordChange") === "true" && location.pathname !== "/profile") {
+    return <Navigate to="/profile?forcePasswordChange=true" replace />
+  }
   return <Outlet />
 }

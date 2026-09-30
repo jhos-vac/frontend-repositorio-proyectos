@@ -62,6 +62,7 @@ import {
 import { Card } from "@/components/ui/card"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
 import { useAuthStore } from "@/store/authStore" 
+import { MemberPicker } from "@/components/projects/MemberPicker"
 import { ReviewBadge } from "@/components/common/ReviewBadge"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
 import { GitBranch } from "lucide-react"
@@ -111,6 +112,7 @@ type Project = {
   }
   startDate?: string | null
   endDate?: string | null
+  userProjects?: { id: string; userId: string; user: { id: string; name: string; level?: number | null } }[]
   careerId: string
   createdAt?: string
   updatedAt?: string
@@ -198,6 +200,7 @@ const ProyectPage = () => {
     if (searchParams.get("nuevo") === "1") {
       createProjectForm.reset({ ...createProjectForm.getValues(), careerId: isStudent ? ((currentUser as any)?.careerId || '') : '' })
       setSelectedSkills([])
+      setSelectedMembers([])
       setIsCreateOpen(true)
       const next = new URLSearchParams(searchParams)
       next.delete("nuevo")
@@ -209,6 +212,7 @@ const ProyectPage = () => {
   const [isSkillsManagerOpen, setIsSkillsManagerOpen] = useState(false)
   const [isCreateSkillOpen, setIsCreateSkillOpen] = useState(false)
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   
   const [activeTab, setActiveTab] = useState<"mine" | "community">("mine")
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null)
@@ -480,9 +484,15 @@ const ProyectPage = () => {
         )).catch(e => console.log("Error menor guardando skills:", e));
       }
 
+      if (projectId && selectedMembers.length > 0) {
+        await api.put(`/api/projects/${projectId}/members`, { userIds: selectedMembers })
+          .catch(e => console.log("Error menor guardando integrantes:", e));
+      }
+
       setIsCreateOpen(false); 
       createProjectForm.reset();
       setSelectedSkills([]);
+      setSelectedMembers([]);
       fetchProjects();
       fetchUserProjects();
       fetchSkillsData();
@@ -552,6 +562,8 @@ const ProyectPage = () => {
       });
       
       await Promise.all(promises);
+      await api.put(`/api/projects/${editingProject.id}/members`, { userIds: selectedMembers })
+        .catch(e => console.log("Error menor guardando integrantes:", e));
       
       await fetchProjects();
       await fetchSkillsData();
@@ -628,6 +640,7 @@ const ProyectPage = () => {
                              (projectSkills.filter(ps => ps.projectId === project.id).map(ps => ps.skillId));
     
     setSelectedSkills(existingSkillIds);
+    setSelectedMembers((project.userProjects || []).map((m) => m.userId).filter((id) => id !== project.createdBy));
 
     const { link, textItems } = parseDeliverables(project.deliverables || []);
 
@@ -781,6 +794,7 @@ const ProyectPage = () => {
       <FormField control={form.control} name="careerId" render={({ field }) => (
         <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Carrera</FormLabel><FormControl><select disabled={isStudent} title={isStudent ? "Tu carrera se toma de tu perfil" : undefined} className="w-full mt-1 h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3 disabled:opacity-70" {...field}><option value="">Seleccionar carrera...</option>{careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
       )} />
+      <MemberPicker careerId={form.watch("careerId")} selfId={userId} value={selectedMembers} onChange={setSelectedMembers} />
       <div className="md:col-span-2 bg-white p-4 rounded-lg border border-slate-200">
         <Label className="text-brand-700 font-bold mb-3 block items-center gap-2"><Code2 className="w-4 h-4" /> Habilidades Requeridas</Label>
         <div className="relative mb-3">
@@ -832,7 +846,7 @@ const ProyectPage = () => {
               {(
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button className="hidden" aria-hidden tabIndex={-1} onClick={() => { createProjectForm.reset(); setSelectedSkills([]) }}>
+                    <Button className="hidden" aria-hidden tabIndex={-1} onClick={() => { createProjectForm.reset(); setSelectedSkills([]); setSelectedMembers([]) }}>
                       + Nuevo Proyecto
                     </Button>
                   </DialogTrigger>
@@ -992,6 +1006,7 @@ const ProyectPage = () => {
                                   {p.reviewStatus === 'rejected' && p.reviewNote && p.createdBy === userId && (<p className="mt-1 text-xs text-red-600">Motivo: {p.reviewNote}</p>)}
                                   <p className="mt-1.5 text-sm text-slate-500 line-clamp-2 max-w-md">{p.description}</p>
                                   <p className="mt-1.5 text-[11px] text-slate-400">{[p.academic_period, p.cycle].filter(Boolean).join(" · ")}</p>
+                                  {(p.userProjects?.length ?? 0) > 1 && (<p className="mt-1 text-[11px] text-slate-500">Integrantes: {p.userProjects!.map((m) => m.user.name).join(", ")}</p>)}
                                 </div>
                               </div>
                             </TableCell>
@@ -1087,7 +1102,7 @@ const ProyectPage = () => {
                     <p className="mt-1 whitespace-pre-wrap">{viewProject.reviewNote}</p>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><Badge variant="outline" className="text-brand-700 border-brand-200">{viewProject.status}</Badge></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Integrantes</h4><p className="text-sm text-slate-600">{viewProject.userProjects?.length ? viewProject.userProjects.map((m) => m.user.name).join(", ") : (viewProject.user?.name || "Sin integrantes")}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><Badge variant="outline" className="text-brand-700 border-brand-200">{viewProject.status}</Badge></div></div>
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
                 {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject.id).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>

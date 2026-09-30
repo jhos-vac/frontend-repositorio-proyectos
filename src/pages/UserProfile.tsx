@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import avatarPlaceholder from "../assets/avatar.png"
 import { 
   Loader2, Mail, GraduationCap, Shield, Pencil, Camera, 
-  KeyRound, Eye, EyeOff, Lock, Check, AlertCircle 
+  KeyRound, Eye, EyeOff, Lock, Check, AlertCircle, Layers, UserCheck 
 } from "lucide-react"
 import { DialogTrigger, Dialog, DialogTitle, DialogContent, DialogHeader, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,8 @@ type UserData = {
   email: string
   careerId: string
   roleId: string
-  image?: string 
+  image?: string
+  level?: number | null
 }
 
 type Career = { id: string; name: string }
@@ -38,7 +39,7 @@ const UserProfile = () => {
 
   // === MAGIA: DETECTAR ORDEN DE CAMBIO FORZADO DESDE LA URL ===
   const [searchParams, setSearchParams] = useSearchParams()
-  const forceChange = searchParams.get('forcePasswordChange') === 'true'
+  const forceChange = searchParams.get('forcePasswordChange') === 'true' || localStorage.getItem('needsPasswordChange') === 'true'
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const accessToken = localStorage.getItem('token')
@@ -47,6 +48,8 @@ const UserProfile = () => {
   const updateUserStore = useAuthStore((state) => state.updateUser)
 
   const [loading, setLoading] = useState(true)
+  const [passwordChanged, setPasswordChanged] = useState(false)
+  const [teacher, setTeacher] = useState<{ name: string; email: string } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [user, setUser] = useState<UserData | null>(null)
   const [careerName, setCareerName] = useState("Cargando...")
@@ -115,6 +118,9 @@ const UserProfile = () => {
       if (rawRole === 'USER') translatedRole = 'ESTUDIANTE';
 
       setRoleName(translatedRole);
+      if (rawRole === 'USER') {
+        api.get('/api/assignments/my-teacher').then((r) => setTeacher(r.data?.teacher || null)).catch(() => setTeacher(null))
+      }
 
     } catch (error) {
       console.error("Error cargando perfil:", error)
@@ -125,7 +131,7 @@ const UserProfile = () => {
 
   // === EFECTO PARA ABRIR AUTOMÁTICAMENTE EL MODAL SI ES OBLIGATORIO ===
   useEffect(() => {
-    if (forceChange) {
+    if (forceChange && !passwordChanged) {
       setIsPasswordDialogOpen(true);
     }
   }, [forceChange]);
@@ -207,6 +213,7 @@ const UserProfile = () => {
         localStorage.setItem("needsPasswordChange", "false"); 
         searchParams.delete('forcePasswordChange'); 
         setSearchParams(searchParams);
+        setPasswordChanged(true);
       }
       
       // Muestra el mensaje de éxito
@@ -498,6 +505,26 @@ const UserProfile = () => {
                   <p className="text-sm text-slate-800 font-medium">{careerName}</p>
                 </div>
               </div>
+
+              {roleName === 'ESTUDIANTE' && (
+                <>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-200/50">
+                    <div className="bg-slate-50 p-2 rounded-lg text-brand-600"><Layers className="w-5 h-5" /></div>
+                    <div>
+                      <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Nivel</p>
+                      <p className="text-sm text-slate-800 font-medium">{user?.level ? `Nivel ${user.level}` : 'Sin asignar'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-200/50">
+                    <div className="bg-slate-50 p-2 rounded-lg text-brand-600"><UserCheck className="w-5 h-5" /></div>
+                    <div className="overflow-hidden">
+                      <p className="text-[10px] text-slate-500 uppercase font-black tracking-tighter">Docente asignado</p>
+                      <p className="text-sm text-slate-800 font-medium truncate">{teacher ? teacher.name : 'Aún sin docente asignado'}</p>
+                      {teacher && <p className="text-xs text-slate-500 truncate">{teacher.email}</p>}
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-200/50">
                 <div className="bg-slate-50 p-2 rounded-lg text-orange-600"><Shield className="w-5 h-5" /></div>

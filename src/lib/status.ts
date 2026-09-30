@@ -20,18 +20,10 @@ export const STATUS_STYLE: Record<ProjectStatus, { badge: string; dot: string }>
 
 export function normalizeStatus(
   status?: string | null,
-  startDate?: string | null,
-  endDate?: string | null
+  _startDate?: string | null,
+  _endDate?: string | null
 ): ProjectStatus {
-  // Si hay fechas, mandan sobre el texto guardado (misma regla que tenía la pantalla de proyectos)
-  if (startDate && endDate) {
-    const today = new Date(); today.setHours(0, 0, 0, 0)
-    const start = new Date(startDate); start.setHours(0, 0, 0, 0)
-    const end = new Date(endDate); end.setHours(0, 0, 0, 0)
-    if (today > end) return "completado"
-    if (today >= start) return "en-progreso"
-    return "por-iniciar"
-  }
+  // El estado es el guardado en el proyecto (las fechas ya no forman parte del registro)
   const s = (status || "").toLowerCase()
   if (s.includes("complet") || s.includes("finaliz")) return "completado"
   if (s.includes("inici") || s.includes("pend")) return "por-iniciar"
