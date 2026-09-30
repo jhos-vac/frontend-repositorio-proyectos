@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
-import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch } from "lucide-react"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch, CalendarRange } from "lucide-react"
 import api, { clearSession } from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
@@ -91,6 +91,7 @@ const Sidebar = ({ open, onClose }: Props) => {
                 <NavItem to="/admin/usuarios" icon={Users} label="Usuarios y roles" onClick={onClose} />
                 <NavItem to="/admin/asignaciones" icon={Link2} label="Docentes por nivel" onClick={onClose} />
                 <NavItem to="/admin/proyectos" icon={GitBranch} label="Gestión de proyectos" onClick={onClose} />
+                <NavItem to="/admin/periodos" icon={CalendarRange} label="Períodos académicos" onClick={onClose} />
               </div>
               <div className="mt-1 space-y-1" onClick={onClose}>
                 <CreateTeacherModal />

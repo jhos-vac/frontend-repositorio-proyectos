@@ -61,7 +61,6 @@ import {
 } from "@/components/ui/form"
 import { Card } from "@/components/ui/card"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
-import { CreatePeriodModal } from "@/components/ui/CreatePeriodModal"
 import { useAuthStore } from "@/store/authStore" 
 import { ReviewBadge } from "@/components/common/ReviewBadge"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
@@ -72,14 +71,6 @@ const skillSchema = z.object({
   description: z.string().min(1, "La descripción es obligatoria"),
 })
 
-const validateYear = (dateString: string) => {
-  if (!dateString) return true;
-  const date = new Date(dateString);
-  const year = date.getUTCFullYear();
-  const currentYear = new Date().getFullYear();
-  return year >= currentYear - 1 && year <= currentYear + 1;
-};
-
 const projectSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio"),
   description: z.string().min(1, "La problemática es obligatoria"),
@@ -88,16 +79,6 @@ const projectSchema = z.object({
   link: z.string().optional(), 
   cycle: z.string().min(1, "Selecciona un ciclo"),
   academic_period: z.string().min(1, "Selecciona un período"),
-  startDate: z.string()
-    .min(1, "Fecha de inicio requerida")
-    .refine(validateYear, { 
-      message: "La fecha debe ser del año anterior, actual o el siguiente" 
-    }),
-  endDate: z.string()
-    .min(1, "Fecha de fin requerida")
-    .refine(validateYear, { 
-      message: "La fecha debe ser del año anterior, actual o el siguiente" 
-    }),
   careerId: z.string().min(1, "Selecciona una carrera"),
   objectives: z.string().min(1, "Debes ingresar al menos un objetivo"),
   status: z.string().optional(),
@@ -191,6 +172,7 @@ const ProyectPage = () => {
   const [filterReview, setFilterReview] = useState("Todo");
   const [branchTarget, setBranchTarget] = useState<Project | null>(null)
   const [branchName, setBranchName] = useState("")
+  const [branchPeriod, setBranchPeriod] = useState("")
   const [lineage, setLineage] = useState<LineageNode[]>([])
   const [filterCareer, setFilterCareer] = useState("");
   const [filterStatusUserProjects, setFilterStatusUserProjects] = useState("Todo")
@@ -266,7 +248,7 @@ const ProyectPage = () => {
     resolver: zodResolver(projectSchema),
     defaultValues: {
       name: "", description: "", summary: "", deliverables: "", link: "",
-      cycle: "", academic_period: "", startDate: "", endDate: "",
+      cycle: "", academic_period: "",
       careerId: "", objectives: "", status: "en progreso",
     }
   })
@@ -275,7 +257,7 @@ const ProyectPage = () => {
     resolver: zodResolver(projectSchema),
     defaultValues: {
       name: "", description: "", summary: "", deliverables: "", link: "",
-      cycle: "", academic_period: "", startDate: "", endDate: "",
+      cycle: "", academic_period: "",
       careerId: "", objectives: "", status: "",
     }
   })
@@ -398,28 +380,10 @@ const ProyectPage = () => {
     return relations.map(rel => skills.find(s => s.id === rel.skillId)).filter(Boolean) as Skill[];
   }
 
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "Pendiente";
-    return new Date(dateString).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
   const parseDeliverables = (items: string[]) => {
     const link = items.find(item => item.startsWith('http') || item.startsWith('https'));
     const textItems = items.filter(item => !item.startsWith('http') && !item.startsWith('https'));
     return { link, textItems };
-  }
-
-  const handleDeletePeriod = async (id: string) => {
-    setLoading(true);
-    try {
-        await api.delete(`/api/period/${id}`);
-        await fetchPeriods(); 
-        setLoading(false);
-        setTimeout(() => showSuccess("Período eliminado correctamente"), 300); 
-    } catch (error) {
-        setLoading(false);
-        showError("No se pudo eliminar.");
-    }
   }
 
   const handleCreateSkill = async (values: z.infer<typeof skillSchema>) => {
@@ -506,8 +470,6 @@ const ProyectPage = () => {
         status: initialStatus,
         objectives: objectivesArray,
         deliverables: deliverablesArray, 
-        startDate: new Date(values.startDate).toISOString(),
-        endDate: new Date(values.endDate).toISOString(),
         createdBy: userId,
       });
 
@@ -564,8 +526,6 @@ const ProyectPage = () => {
         status: values.status, 
         objectives: objectivesArray,
         deliverables: deliverablesArray,
-        startDate: new Date(values.startDate).toISOString(),
-        endDate: new Date(values.endDate).toISOString(),
       });
 
       const currentRelations = editingProject.projectSkills || projectSkills.filter(ps => ps.projectId === editingProject.id);
@@ -609,13 +569,14 @@ const ProyectPage = () => {
   const openBranchDialog = (project: Project) => {
     setBranchTarget(project)
     setBranchName(`${project.name} (continuación)`)
+    setBranchPeriod(periods[0]?.name || "")
   }
 
   const handleBranch = async () => {
     if (!branchTarget) return
     setLoading(true)
     try {
-      const res = await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined })
+      const res = await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined, academic_period: branchPeriod || undefined })
       setBranchTarget(null)
       setIsViewOpen(false)
       await fetchProjects()
@@ -678,8 +639,6 @@ const ProyectPage = () => {
       link: link || "",
       cycle: project.cycle,
       academic_period: project.academic_period,
-      startDate: project.startDate ? project.startDate.split('T')[0] : "",
-      endDate: project.endDate ? project.endDate.split('T')[0] : "",
       careerId: project.careerId,
       objectives: project.objectives?.join("\n") || "",
       status: project.status
@@ -773,7 +732,7 @@ const ProyectPage = () => {
     )
   }
 
-  const renderFormFields = (form: any, isEdit: boolean = false) => (
+  const renderFormFields = (form: any) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
       <FormField control={form.control} name="name" render={({ field }) => (
         <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Nombre del Proyecto</FormLabel><FormControl><Textarea className="bg-white border-slate-300 mt-1" {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
@@ -807,35 +766,6 @@ const ProyectPage = () => {
         <FormItem>
           <div className="flex items-center justify-between h-8 mb-1">
             <FormLabel className="text-slate-400">Período</FormLabel>
-            <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-               {!isEdit && isAdmin && <CreatePeriodModal onSuccess={() => {
-                   fetchPeriods();
-                   showSuccess("Período creado correctamente");
-               }} />}
-               {!isEdit && isAdmin && (
-                  <Dialog>
-                    <DialogTrigger asChild>
-                       <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-slate-500 hover:text-red-600" title="Borrar Periodos">
-                          <Trash2 className="w-3 h-3" />
-                       </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 sm:max-w-xs">
-                       <DialogHeader>
-                          <DialogTitle>Eliminar Periodos</DialogTitle>
-                          <DialogDescription className="text-slate-500">Clic en el icono para borrar automáticamente.</DialogDescription>
-                       </DialogHeader>
-                       <div className="space-y-2 mt-2 max-h-[60vh] overflow-y-auto">
-                          {periods.length === 0 ? <p className="text-sm text-slate-500">No hay periodos.</p> : periods.map(p => (
-                             <div key={p.id} className="flex justify-between items-center p-2 bg-white rounded border border-slate-200">
-                                <span className="text-sm truncate max-w-[150px]" title={p.name}>{p.name}</span>
-                                <Button type="button" variant="ghost" size="sm" className="h-6 w-6 text-red-600 hover:bg-red-50 p-0" onClick={() => handleDeletePeriod(p.id)}><Trash2 className="w-3 h-3" /></Button>
-                             </div>
-                          ))}
-                       </div>
-                    </DialogContent>
-                  </Dialog>
-               )}
-            </div>
           </div>
           <FormControl>
             <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field}>
@@ -843,16 +773,11 @@ const ProyectPage = () => {
               {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
             </select>
           </FormControl>
+          {periods.length === 0 && <p className="text-xs text-amber-600">Aún no hay períodos. El administrador debe registrarlos en «Períodos académicos».</p>}
           <FormMessage className="text-red-600 text-xs" />
         </FormItem>
       )} />
 
-      <FormField control={form.control} name="startDate" render={({ field }) => (
-        <FormItem><FormLabel className="text-slate-400">Fecha Inicio</FormLabel><FormControl><Input type="date" className="bg-white border-slate-300 mt-1" {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
-      )} />
-      <FormField control={form.control} name="endDate" render={({ field }) => (
-        <FormItem><FormLabel className="text-slate-400">Fecha Fin</FormLabel><FormControl><Input type="date" className="bg-white border-slate-300 mt-1" {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
-      )} />
       <FormField control={form.control} name="careerId" render={({ field }) => (
         <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Carrera</FormLabel><FormControl><select disabled={isStudent} title={isStudent ? "Tu carrera se toma de tu perfil" : undefined} className="w-full mt-1 h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3 disabled:opacity-70" {...field}><option value="">Seleccionar carrera...</option>{careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
       )} />
@@ -912,10 +837,10 @@ const ProyectPage = () => {
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50 border-slate-200 text-slate-900">
-                    <DialogHeader><DialogTitle className="text-xl font-bold text-brand-700">Crear Nueva Proyecto</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle className="text-xl font-bold text-brand-700">Crear nuevo proyecto</DialogTitle></DialogHeader>
                     <Form {...createProjectForm}>
                       <form onSubmit={createProjectForm.handleSubmit(handleCreateProyect)}>
-                        {renderFormFields(createProjectForm, false)}
+                        {renderFormFields(createProjectForm)}
                         <DialogFooter>
                           <Button type="button" variant="ghost" className="hover:bg-slate-100" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
                           <Button type="submit" className="bg-brand-700 hover:bg-brand-800" disabled={loading}>{loading ? "Creando..." : "Guardar Proyecto"}</Button>
@@ -1018,7 +943,7 @@ const ProyectPage = () => {
                     <TableRow className="border-slate-200 hover:bg-white">
                       <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold min-w-[320px]">Proyecto</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Tecnologías</TableHead>
-                      <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold min-w-[140px]">Estado y fechas</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold min-w-[140px]">Estado y período</TableHead>
                       <TableHead className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1086,10 +1011,7 @@ const ProyectPage = () => {
                                 ) : ( */}
                                   <div className="flex flex-wrap gap-1.5"><StatusBadge status={p.status} startDate={p.startDate} endDate={p.endDate} /><ReviewBadge status={p.reviewStatus} /></div>
                                 {/* )} */}
-                                <div className="text-xs text-slate-500">
-                                  <div className="mb-1"><span className="text-slate-500">Inicio:</span> <br />{formatDate(p.startDate)}</div>
-                                  <div><span className="text-slate-500">Fin:</span> <br />{formatDate(p.endDate)}</div>
-                                </div>
+                                <div className="text-xs text-slate-500"><span>Período:</span> <br />{p.academic_period || "—"}</div>
                               </div>
                             </TableCell>
                             {(
@@ -1129,7 +1051,7 @@ const ProyectPage = () => {
           )}
           <Form {...editProjectForm}>
             <form onSubmit={editProjectForm.handleSubmit(handleEditProyect)}>
-                {renderFormFields(editProjectForm, true)}
+                {renderFormFields(editProjectForm)}
                 <DialogFooter>
                     <Button type="button" variant="ghost" className="hover:bg-slate-100" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
                     <Button type="submit" disabled={loading}>Guardar Cambios</Button>
@@ -1165,7 +1087,7 @@ const ProyectPage = () => {
                     <p className="mt-1 whitespace-pre-wrap">{viewProject.reviewNote}</p>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Fechas</h4><p className="text-sm text-slate-600">{formatDate(viewProject.startDate)} al {formatDate(viewProject.endDate)}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><Badge variant="outline" className="text-brand-700 border-brand-200">{viewProject.status}</Badge></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><Badge variant="outline" className="text-brand-700 border-brand-200">{viewProject.status}</Badge></div></div>
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
                 {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject.id).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
@@ -1199,6 +1121,10 @@ const ProyectPage = () => {
           <div className="space-y-2 py-2">
             <Label htmlFor="branch-name">Nombre de la continuación</Label>
             <Input id="branch-name" value={branchName} onChange={(e) => setBranchName(e.target.value)} className="bg-white border-slate-300" />
+            <Label htmlFor="branch-period" className="mt-3 block">Período académico de la continuación</Label>
+            <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
+              {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+            </select>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBranchTarget(null)}>Cancelar</Button>

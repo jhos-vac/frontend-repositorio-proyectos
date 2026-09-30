@@ -10,6 +10,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import ReviewPage from './pages/ReviewPage'
 import UsersAdmin from './pages/admin/UsersAdmin'
 import AssignmentsAdmin from './pages/admin/AssignmentsAdmin'
+import PeriodsAdmin from './pages/admin/PeriodsAdmin'
 import ProjectsAdmin from './pages/admin/ProjectsAdmin'
 import { RoleRoute } from './components/layout/RoleRoute'
 import { AppLayout } from './components/layout/AppLayout'
@@ -39,6 +40,7 @@ function App() {
             <Route path="/admin/usuarios" element={<UsersAdmin />} />
             <Route path="/admin/asignaciones" element={<AssignmentsAdmin />} />
             <Route path="/admin/proyectos" element={<ProjectsAdmin />} />
+            <Route path="/admin/periodos" element={<PeriodsAdmin />} />
           </Route>
         </Route>
       </Route>
