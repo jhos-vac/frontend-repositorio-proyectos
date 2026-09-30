@@ -34,7 +34,6 @@ import {
   Check, 
   AlertCircleIcon, 
   Search,
-  Link as LinkIcon,
   Zap,
   Trash2, 
   AlertTriangle,
@@ -62,6 +61,7 @@ import {
 import { Card } from "@/components/ui/card"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
 import { useAuthStore } from "@/store/authStore" 
+import { ProjectFilesPanel } from "@/components/projects/ProjectFilesPanel"
 import { MemberPicker } from "@/components/projects/MemberPicker"
 import { ReviewBadge } from "@/components/common/ReviewBadge"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
@@ -458,7 +458,6 @@ const ProyectPage = () => {
     try {
       const objectivesArray = values.objectives.split("\n").filter(l => l.trim().length > 0)
       let deliverablesArray = values.deliverables ? values.deliverables.split("\n").filter(l => l.trim().length > 0) : []
-      if (values.link && values.link.trim() !== "") { deliverablesArray.push(values.link.trim()); }
       
       // COMENTADO: El estado inicial pasa a ser en progreso directamente
       // const initialStatus = "pendiente";
@@ -524,7 +523,6 @@ const ProyectPage = () => {
     try {
       const objectivesArray = values.objectives.split("\n").filter(l => l.trim().length > 0)
       let deliverablesArray = values.deliverables ? values.deliverables.split("\n").filter(l => l.trim().length > 0) : []
-      if (values.link && values.link.trim() !== "") { deliverablesArray.push(values.link.trim()); }
 
       await api.patch(`/api/projects/${editingProject.id}`, {
         name: values.name,
@@ -820,9 +818,6 @@ const ProyectPage = () => {
       <FormField control={form.control} name="deliverables" render={({ field }) => (
         <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Entregables (Texto)</FormLabel><FormControl><Textarea className="bg-white border-slate-300 mt-1 h-32" placeholder="- Entregable 1&#10;" {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
       )} />
-      <FormField control={form.control} name="link" render={({ field }) => (
-        <FormItem className="md:col-span-2"><FormLabel className="text-slate-400 flex items-center gap-2"><LinkIcon className="w-3 h-3" /> Enlace de Repositorio/Drive</FormLabel><FormControl><Input className="bg-white border-slate-300 mt-1" placeholder="https://..." {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
-      )} />
       {/* CAMPO DE ESTADO ELIMINADO TANTO PARA EDITAR COMO PARA CREAR */}
     </div>
   )
@@ -1102,11 +1097,14 @@ const ProyectPage = () => {
                     <p className="mt-1 whitespace-pre-wrap">{viewProject.reviewNote}</p>
                   </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Integrantes</h4><p className="text-sm text-slate-600">{viewProject.userProjects?.length ? viewProject.userProjects.map((m) => m.user.name).join(", ") : (viewProject.user?.name || "Sin integrantes")}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><Badge variant="outline" className="text-brand-700 border-brand-200">{viewProject.status}</Badge></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Integrantes</h4><p className="text-sm text-slate-600">{viewProject.userProjects?.length ? viewProject.userProjects.map((m) => m.user.name).join(", ") : (viewProject.user?.name || "Sin integrantes")}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><StatusBadge status={viewProject.status} /></div></div>
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
                 {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject.id).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
               </div>
+            )}
+            {viewProject && (
+              <div className="mt-4"><ProjectFilesPanel project={viewProject as any} userId={userId} isAdmin={!!isAdmin} /></div>
             )}
             {lineage.length > 1 && viewProject && (
               <div>
