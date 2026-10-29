@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
-import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch, CalendarRange } from "lucide-react"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch, CalendarRange, History } from "lucide-react"
 import api, { clearSession } from "@/api/axios"
 import { useAuthStore } from "@/store/authStore"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
@@ -34,13 +34,14 @@ const Sidebar = ({ open, onClose }: Props) => {
   const roleName: string | undefined = user?.role?.name
   const isAdmin = roleName === "ADMIN"
   const isStaff = isAdmin || roleName === "TEACHER"
+  const isStudent = roleName === "USER"
   const canCreate = !!roleName
 
   useEffect(() => {
     if (!isLogged || !userId) return
     api.get(`/api/users/${userId}`).then((res) => setUser(res.data)).catch(() => {})
-    api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
-  }, [isLogged, userId, setUser])
+    if (!isStudent) api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
+  }, [isLogged, userId, setUser, isStudent])
 
   const handleLogout = () => {
     // Revoca la sesión en el servidor (best-effort) y limpia todo lo local
@@ -78,7 +79,14 @@ const Sidebar = ({ open, onClose }: Props) => {
             <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Espacio académico</p>
             <div className="space-y-1">
               <NavItem to="/dashboard" icon={LayoutDashboard} label="Inicio" onClick={onClose} />
-              <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
+              {isStudent ? (
+                <>
+                  <NavItem to="/mis-proyectos" icon={FolderKanban} label="Mis proyectos" onClick={onClose} />
+                  <NavItem to="/ciclos-pasados" icon={History} label="Ciclos pasados" onClick={onClose} />
+                </>
+              ) : (
+                <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
+              )}
               {isStaff && <NavItem to="/revision" icon={ClipboardCheck} label="Revisión" onClick={onClose} />}
               <NavItem to="/profile" icon={UserRound} label="Mi perfil" onClick={onClose} />
             </div>

@@ -496,7 +496,11 @@ const ProyectPage = () => {
       fetchUserProjects();
       fetchSkillsData();
       setLoading(false);
-      setTimeout(() => showSuccess(isStudent ? "Proyecto enviado: quedará pendiente hasta que tu docente lo revise" : "Proyecto guardado correctamente"), 300);
+      if (isStudent) {
+        navigate('/mis-proyectos', { state: { created: true } })
+        return
+      }
+      setTimeout(() => showSuccess("Proyecto guardado correctamente"), 300);
     } catch (error) {
       setLoading(false); 
       showError("Hubo un problema al crear el proyecto.");

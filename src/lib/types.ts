@@ -22,6 +22,7 @@ export type ProjectRow = {
   reviewStatus: string
   reviewNote?: string | null
   level?: number | null
+  academic_period?: string | null
   careerId: string
   createdBy: string | null
   createdAt: string
