@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { ArrowRight, CheckCircle2, FolderKanban, Loader2, Cpu, PlayCircle, FolderOpen, GitCommitHorizontal } from "lucide-react"
 import api from "@/api/axios"
@@ -9,7 +9,7 @@ import { StatusBadge } from "@/components/common/StatusBadge"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import { ProgressBar } from "@/components/common/ProgressBar"
 import { EmptyState } from "@/components/common/EmptyState"
-import { normalizeStatus, projectProgress } from "@/lib/status"
+import { projectProgress } from "@/lib/status"
 import { greeting, timeAgo } from "@/lib/format"
 import { useIsStudent } from "@/lib/useRole"
 import StudentHome from "@/pages/student/StudentHome"
@@ -28,65 +28,43 @@ type Project = {
   projectSkills?: { skill?: { id: string; name: string } }[]
 }
 
+type DashboardSummary = {
+  total: number
+  active: number
+  done: number
+  featured: Project[]
+  recent: Project[]
+  topSkills: { name: string; n: number }[]
+}
+
 const StaffDashboard = () => {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const period = usePeriodStore((s) => s.period)
-  const [projects, setProjects] = useState<Project[]>([])
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [skillsTotal, setSkillsTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // El servidor calcula totales, en curso, recientes y tecnologías (solo lo visible y del período)
   useEffect(() => {
-    Promise.allSettled([api.get("/api/projects?limit=1000"), api.get("/api/skills?limit=1000")])
+    let cancelled = false
+    Promise.allSettled([
+      api.get<DashboardSummary>("/api/projects/dashboard", { params: period ? { period } : {} }),
+      api.get("/api/skills?limit=1"),
+    ])
       .then(([p, s]) => {
-        if (p.status === "fulfilled") setProjects(p.value.data?.data ?? p.value.data ?? [])
+        if (cancelled) return
+        if (p.status === "fulfilled") setSummary(p.value.data)
         if (s.status === "fulfilled") setSkillsTotal(s.value.data?.meta?.total ?? s.value.data?.data?.length ?? 0)
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [period])
 
-  const visible = useMemo(
-    () => (period ? projects.filter((p) => p.academic_period === period) : projects),
-    [projects, period]
-  )
-
-  const stats = useMemo(() => {
-    let active = 0, done = 0
-    visible.forEach((p) => {
-      const s = normalizeStatus(p.status, p.startDate, p.endDate)
-      if (s === "completado") done++
-      else if (s === "en-progreso") active++
-    })
-    return { total: visible.length, active, done }
-  }, [visible])
-
-  // Proyectos en curso más recientes
-  const featured = useMemo(
-    () =>
-      visible
-        .filter((p) => normalizeStatus(p.status, p.startDate, p.endDate) === "en-progreso")
-        .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
-        .slice(0, 2),
-    [visible]
-  )
-
-  const recent = useMemo(
-    () => [...visible].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt)),
-    [visible]
-  )
-
-  const topSkills = useMemo(() => {
-    const count = new Map<string, { name: string; n: number }>()
-    visible.forEach((p) =>
-      p.projectSkills?.forEach((ps) => {
-        if (!ps.skill) return
-        const cur = count.get(ps.skill.id) || { name: ps.skill.name, n: 0 }
-        cur.n++
-        count.set(ps.skill.id, cur)
-      })
-    )
-    return [...count.values()].sort((a, b) => b.n - a.n).slice(0, 6)
-  }, [visible])
+  const stats = { total: summary?.total ?? 0, active: summary?.active ?? 0, done: summary?.done ?? 0 }
+  const featured = summary?.featured ?? []
+  const recent = summary?.recent ?? []
+  const topSkills = summary?.topSkills ?? []
 
   const firstName = (user?.name || "").split(" ")[0]
 
