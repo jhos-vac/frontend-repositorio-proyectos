@@ -44,10 +44,11 @@ const Sidebar = ({ open, onClose }: Props) => {
   }, [isLogged, userId, setUser, isStudent])
 
   const handleLogout = () => {
-    // Revoca la sesión en el servidor (best-effort) y limpia todo lo local
-    api.post("/api/auth/logout").catch(() => {}).finally(() => {
-      clearSession()
-    })
+    // Revoca la sesión en el servidor (best-effort) y limpia todo lo local YA,
+    // antes de ir al login (si no, GuestRoute ve el token y regresa al panel)
+    const token = localStorage.getItem("token")
+    api.post("/api/auth/logout", null, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
+    clearSession()
     logoutStore()
     navigate("/login")
   }
