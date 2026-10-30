@@ -1,10 +1,11 @@
 name: CI/CD frontend
 
+# Gitflow: feature/* -> develop -> main. Solo main despliega en el servidor.
 on:
   push:
-    branches: [main, funcionalidad]
+    branches: [main, develop, 'feature/**', 'release/**', 'hotfix/**']
   pull_request:
-    branches: [main]
+    branches: [main, develop]
 
 concurrency:
   group: frontend-${{ github.ref }}
