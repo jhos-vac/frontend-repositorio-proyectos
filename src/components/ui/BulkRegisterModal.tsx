@@ -17,6 +17,7 @@ export function BulkRegisterModal() {
   const [success, setSuccess] = useState(false);
   const [errorAlert, setErrorAlert] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [created, setCreated] = useState(0);
   
   const [teacherRoleId, setTeacherRoleId] = useState<string | null>(null);
   const [careersList, setCareersList] = useState<{id: string, name: string}[]>([]);
@@ -59,35 +60,36 @@ export function BulkRegisterModal() {
 
         if (rawData.length === 0) throw new Error("El archivo está vacío");
 
-        // Procesar fila por fila
-        for (let i = 0; i < rawData.length; i++) {
-          const item = rawData[i];
-          
+        // Se arman TODAS las filas y se revisan las carreras antes de enviar nada
+        const careerErrors: string[] = [];
+        const teachers = rawData.map((item, i) => {
           // Lógica: Buscar ID usando el nombre de la carrera
-          const nombreCarrera = (item.carrera || item.career || "").trim();
+          const nombreCarrera = String(item.carrera || item.career || "").trim();
           const carreraEncontrada = careersList.find(
             c => c.name.toLowerCase() === nombreCarrera.toLowerCase()
           );
-
           if (!carreraEncontrada) {
-            throw new Error(`Fila ${i + 1}: La carrera "${nombreCarrera}" no existe en el sistema. Revisa la ortografía.`);
+            careerErrors.push(`Fila ${i + 1}: la carrera "${nombreCarrera}" no existe en el sistema. Revisa la ortografía.`);
           }
-
-          const payload = {
+          return {
             name: String(item.nombre || item.name || "").trim(),
             email: String(item.correo || item.email || "").trim(),
             password: String(item.password || item.contraseña || "").trim(),
-            careerId: carreraEncontrada.id, // ¡Aquí usamos el ID encontrado!
+            careerId: carreraEncontrada?.id || "",
             roleId: teacherRoleId
           };
+        });
+        if (careerErrors.length) throw new Error(careerErrors.join("\n"));
 
-          try {
-            await api.post('/api/users/create-teacher', payload);
-          } catch (apiErr: any) {
-            const serverMsg = apiErr.response?.data?.message || "Error desconocido";
-            const detail = Array.isArray(serverMsg) ? serverMsg.join(", ") : serverMsg;
-            throw new Error(`Fila ${i + 1} (${payload.name}): ${detail}`);
-          }
+        // Una sola petición: el servidor crea todos los docentes o ninguno
+        try {
+          const res = await api.post('/api/users/create-teachers', { teachers });
+          setCreated(res.data?.created ?? teachers.length);
+        } catch (apiErr: any) {
+          const serverMsg = apiErr.response?.data?.message || "Error desconocido";
+          const lines: string[] = Array.isArray(serverMsg) ? serverMsg : [serverMsg];
+          // Los errores de formato llegan como "teachers.3.<mensaje>": se muestran como "Fila 4: <mensaje>"
+          throw new Error(lines.map((l) => l.replace(/^teachers\.(\d+)\./, (_, n) => `Fila ${Number(n) + 1}: `)).join("\n"));
         }
 
         setOpen(false);
@@ -117,7 +119,7 @@ export function BulkRegisterModal() {
                 <CheckCircle2 className="h-6 w-6 text-slate-900" />
                 <div>
                   <AlertTitle className="text-white font-bold text-lg">Éxito</AlertTitle>
-                  <AlertDescription className="text-white font-medium text-base">Carga completada.</AlertDescription>
+                  <AlertDescription className="text-white font-medium text-base">Carga completada: {created} docentes registrados.</AlertDescription>
                 </div>
               </Alert>
             </div>
@@ -128,8 +130,8 @@ export function BulkRegisterModal() {
               <Alert className="w-auto bg-red-600 border-red-500 text-white shadow-2xl flex items-center gap-3 pr-6 py-2">
                 <AlertCircle className="h-4 w-4 text-slate-900" />
                 <div>
-                  <AlertTitle className="text-white font-bold text-xs">Error en Carga</AlertTitle>
-                  <AlertDescription className="text-white text-[10px] max-w-xs">{errorMessage}</AlertDescription>
+                  <AlertTitle className="text-white font-bold text-xs">Error en carga: no se registró ningún docente</AlertTitle>
+                  <AlertDescription className="text-white text-[11px] max-w-sm max-h-60 overflow-y-auto whitespace-pre-line">{errorMessage}</AlertDescription>
                 </div>
               </Alert>
             </div>

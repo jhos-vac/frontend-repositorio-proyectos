@@ -61,6 +61,13 @@ api.interceptors.response.use(
                 if (window.location.pathname !== '/login') window.location.href = '/login';
             }
         }
+
+        // El servidor exige cambiar la clave temporal antes de usar el resto de la API
+        const data = error.response?.data as { error?: string } | undefined;
+        if (error.response?.status === 403 && data?.error === 'PASSWORD_CHANGE_REQUIRED') {
+            localStorage.setItem('needsPasswordChange', 'true');
+            if (window.location.pathname !== '/profile') window.location.href = '/profile?forcePasswordChange=true';
+        }
         return Promise.reject(error);
     },
 );

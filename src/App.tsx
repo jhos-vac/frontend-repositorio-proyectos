@@ -13,6 +13,7 @@ import AssignmentsAdmin from './pages/admin/AssignmentsAdmin'
 import PeriodsAdmin from './pages/admin/PeriodsAdmin'
 import ProjectsAdmin from './pages/admin/ProjectsAdmin'
 import { RoleRoute } from './components/layout/RoleRoute'
+import { GuestRoute } from './components/layout/GuestRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import MyProjects from './pages/student/MyProjects'
 import PastProjects from './pages/student/PastProjects'
@@ -33,11 +34,14 @@ function ProjectsEntry() {
 function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Sin sesión, ProtectedRoute manda al login */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* Acceso (públicas) */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      {/* Acceso (públicas): con sesión abierta se salta al panel */}
+      <Route element={<GuestRoute />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      </Route>
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
 
@@ -64,7 +68,7 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
