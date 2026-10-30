@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom" 
 import { usePeriodStore } from "@/store/periodStore"
 import { StatusBadge } from "@/components/common/StatusBadge"
@@ -129,8 +129,10 @@ type Skill = {
   details: any,
   createdById?: string 
 }
-type ProjectSkill = { id: string, projectId: string, skillId: string }
 type Role = { id: string, name: string }
+type PageMeta = { total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean }
+
+const LIMIT = 20
 
 const ProyectPage = () => {
   const { id } = useParams() 
@@ -141,12 +143,12 @@ const ProyectPage = () => {
   const currentUser = useAuthStore((s) => s.user); 
 
   const [projects, setProjects] = useState<Project[]>([])
+  const [meta, setMeta] = useState<PageMeta | null>(null)
+  const [page, setPage] = useState(1)
   const [skills, setSkills] = useState<Skill[]>([])
-  const [projectSkills, setProjectSkills] = useState<ProjectSkill[]>([])
   const [careers, setCareers] = useState<Career[]>([])
   const [user, setUser] = useState<UserType | null>(null)
   const [role, setRole] = useState<Role[]>([])
-  const [userProjects, setUserProjects] = useState<Project[]>([])
   const [periods, setPeriods] = useState<{id: string, name: string}[]>([])
   
   const userId = localStorage.getItem('id')
@@ -167,6 +169,7 @@ const ProyectPage = () => {
   const [errorMessage, setErrorMessage] = useState("Hubo un problema.")
 
   const [search, setSearch] = useState(searchParams.get("q") || "")
+  const [q, setQ] = useState(search) // búsqueda ya aplicada (con retardo)
   const [skillSearch, setSkillSearch] = useState("")
   const [manageSkillSearch, setManageSkillSearch] = useState("")
   
@@ -221,28 +224,6 @@ const ProyectPage = () => {
   const [skillToDelete, setSkillToDelete] = useState<Skill | null>(null)
   const [visibleDescriptions, setVisibleDescriptions] = useState<Record<string, boolean>>({})
 
-  const getComputedStatus = (project: Project) => {
-    // COMENTADO: Ya no evaluamos ni forzamos el estado a 'pendiente'
-    // if (project.status === 'pendiente') return 'pendiente';
-    
-    if (!project.startDate || !project.endDate) return project.status;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); 
-    const start = new Date(project.startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(project.endDate);
-    end.setHours(0, 0, 0, 0);
-
-    if (now > end) {
-      return 'completado'; 
-    } else if (now >= start && now <= end) {
-      return 'en progreso'; 
-    } else {
-      if (now >= start) return 'en progreso';
-      return project.status; 
-    }
-  };
-
   const createSkillForm = useForm<z.infer<typeof skillSchema>>({
     resolver: zodResolver(skillSchema),
     defaultValues: { name: "", description: "" }
@@ -278,36 +259,41 @@ const ProyectPage = () => {
     setTimeout(() => setErrorAlert(false), 4000)
   }
 
-  const fetchProjects = async () => {
+  // Búsqueda con retardo y vuelta a la página 1 cuando cambia cualquier filtro
+  useEffect(() => { const t = setTimeout(() => setQ(search), 350); return () => clearTimeout(t) }, [search])
+  useEffect(() => { setPage(1) }, [q, filterStatus, filterReview, filterCareer, filterStatusUserProjects, selectedPeriod])
+
+  // El servidor filtra y pagina; solo se descarga la página visible
+  const requestId = useRef(0)
+  const fetchProjects = useCallback(async () => {
+    const current = ++requestId.current
     setLoadingProjects(true)
     try {
-      const res = await api.get("/api/projects?limit=50000") 
-      const rawData = res.data
-      setProjects(Array.isArray(rawData) ? rawData : (rawData.data || []))
+      const params: Record<string, string | number | boolean> = { page, limit: LIMIT }
+      if (q.trim()) params.search = q.trim()
+      if (filterStatus !== "Todo") params.status = filterStatus
+      if (filterReview !== "Todo") params.reviewStatus = filterReview
+      if (filterCareer) params.careerId = filterCareer
+      if (filterStatusUserProjects === "Mis proyectos") params.mine = true
+      if (selectedPeriod) params.period = selectedPeriod
+      const res = await api.get("/api/projects", { params })
+      if (current !== requestId.current) return // llegó una respuesta más nueva
+      setProjects(res.data.data || [])
+      setMeta(res.data.meta || null)
     } catch (error) {
       console.log(error)
+    } finally {
+      if (current === requestId.current) setLoadingProjects(false)
     }
-    setLoadingProjects(false)
-  }
+  }, [page, q, filterStatus, filterReview, filterCareer, filterStatusUserProjects, selectedPeriod])
 
-  const fetchUserProjects = async () => {
-    if (!userId) return;
-    try {
-      const response = await api.get(`/api/users-projects/user/${userId}`);
-      const projectsOnly = response.data.map((item: any) => item.project);
-      setUserProjects(projectsOnly || []);
-    } catch (error) {}
-  }
+  useEffect(() => { fetchProjects() }, [fetchProjects])
 
   const fetchSkillsData = async () => {
     try {
-      const resSkills = await api.get('/api/skills?limit=10000') 
+      const resSkills = await api.get('/api/skills?limit=1000')
       const skillsRaw = resSkills.data
       setSkills(Array.isArray(skillsRaw) ? skillsRaw : (skillsRaw.data || []))
-      
-      const resProjectSkills = await api.get('/api/porjects-skills?limit=100000') 
-      const pSkillsRaw = resProjectSkills.data
-      setProjectSkills(Array.isArray(pSkillsRaw) ? pSkillsRaw : (pSkillsRaw.data || []))
     } catch (error) {
       console.log(error)
     }
@@ -338,7 +324,6 @@ const ProyectPage = () => {
       }
     }
     fetchData()
-    fetchProjects()
     fetchSkillsData()
     fetchPeriods() 
 
@@ -352,37 +337,33 @@ const ProyectPage = () => {
       }
     }
     fetchUser()
-    fetchUserProjects()
   }, [])
 
+  // /projects/:id: el proyecto puede no estar en la página visible, se pide al servidor
   useEffect(() => {
-    if (id && projects.length > 0) {
-      const found = projects.find(p => p.id === id);
-      if (found) {
-        if (searchParams.get("editar") === "1") {
-          // Llegada desde el panel de administración: abre directo la edición
-          loadProjectData(found)
-          const next = new URLSearchParams(searchParams); next.delete("editar")
-          setSearchParams(next, { replace: true })
-        } else {
-          setViewProject(found);
-          setIsViewOpen(true);
-        }
+    if (!id) return
+    let cancelled = false
+    api.get(`/api/projects/${id}`).then((res) => {
+      if (cancelled) return
+      const found: Project = res.data
+      if (searchParams.get("editar") === "1") {
+        // Llegada desde el panel de administración: abre directo la edición
+        loadProjectData(found)
+        const next = new URLSearchParams(searchParams); next.delete("editar")
+        setSearchParams(next, { replace: true })
+      } else {
+        setViewProject(found);
+        setIsViewOpen(true);
       }
-    }
-  }, [id, projects]);
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [id]);
 
   const roleName = user && role.length > 0 ? role.find(r => r.id === user.roleId)?.name : "";
   const isAdmin = roleName?.toLowerCase().includes("admin");
 
-  const getProjectSkillsDisplay = (projectId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (project?.projectSkills) {
-        return project.projectSkills.map(ps => ps.skill);
-    }
-    const relations = projectSkills.filter(ps => ps.projectId === projectId);
-    return relations.map(rel => skills.find(s => s.id === rel.skillId)).filter(Boolean) as Skill[];
-  }
+  const getProjectSkillsDisplay = (project?: Project | null) =>
+    (project?.projectSkills || []).map(ps => ps.skill).filter(Boolean)
 
   const parseDeliverables = (items: string[]) => {
     const link = items.find(item => item.startsWith('http') || item.startsWith('https'));
@@ -493,7 +474,6 @@ const ProyectPage = () => {
       setSelectedSkills([]);
       setSelectedMembers([]);
       fetchProjects();
-      fetchUserProjects();
       fetchSkillsData();
       setLoading(false);
       if (isStudent) {
@@ -540,7 +520,7 @@ const ProyectPage = () => {
         deliverables: deliverablesArray,
       });
 
-      const currentRelations = editingProject.projectSkills || projectSkills.filter(ps => ps.projectId === editingProject.id);
+      const currentRelations = editingProject.projectSkills || [];
       const currentSkillIds = currentRelations.map((ps: any) => ps.skillId || ps.skill?.id);
       
       const skillsToAdd = selectedSkills.filter(sid => !currentSkillIds.includes(sid));
@@ -594,7 +574,6 @@ const ProyectPage = () => {
       setBranchTarget(null)
       setIsViewOpen(false)
       await fetchProjects()
-      await fetchUserProjects()
       setLoading(false)
       setTimeout(() => showSuccess(res.data?.reviewStatus === 'pending'
         ? "Continuación creada: quedó pendiente de revisión de tu docente"
@@ -608,7 +587,9 @@ const ProyectPage = () => {
 
   const openProject = (projectId: string) => {
     const found = projects.find((p) => p.id === projectId)
-    if (found) { setViewProject(found); setIsViewOpen(true) }
+    if (found) { setViewProject(found); setIsViewOpen(true); return }
+    // Fuera de la página visible: se pide al servidor
+    api.get(`/api/projects/${projectId}`).then((res) => { setViewProject(res.data); setIsViewOpen(true) }).catch(() => {})
   }
 
   // Historial de continuidad del proyecto que se está viendo
@@ -638,8 +619,7 @@ const ProyectPage = () => {
 
   const loadProjectData = (project: Project) => {
     setEditingProject(project)
-    const existingSkillIds = (project.projectSkills?.map(ps => ps.skillId || ps.skill.id)) || 
-                             (projectSkills.filter(ps => ps.projectId === project.id).map(ps => ps.skillId));
+    const existingSkillIds = project.projectSkills?.map(ps => ps.skillId || ps.skill.id) || [];
     
     setSelectedSkills(existingSkillIds);
     setSelectedMembers((project.userProjects || []).map((m) => m.userId).filter((id) => id !== project.createdBy));
@@ -962,32 +942,10 @@ const ProyectPage = () => {
                   </TableHeader>
                   <TableBody>
                     {projects.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center h-32 text-slate-500">No se encontraron proyectos.</TableCell></TableRow>) : (
-                      projects.filter(p => {
+                      // Los filtros (búsqueda, estado, revisión, carrera, origen y período) los aplica el servidor
+                      projects.map((p) => {
                         const careerName = careers.find((c) => c.id === p.careerId)?.name;
-                        const term = search.toLowerCase();
-                        const projectSkillsList = getProjectSkillsDisplay(p.id);
-                        
-                        // LÓGICA DE FILTRADO CON EL ESTADO CALCULADO
-                        const currentStatus = getComputedStatus(p);
-
-                        const matchesSearch = (p.name?.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term) || careerName?.toLowerCase().includes(term) || projectSkillsList.some(s => s.name.toLowerCase().includes(term)));
-                        
-                        // USA EL ESTADO CALCULADO
-                        const matchesStatus = filterStatus === "Todo" || currentStatus === filterStatus;
-                        const matchesReview = filterReview === "Todo" || (p.reviewStatus || 'approved') === filterReview;
-                        
-                        const isOwner = p.createdBy === userId || userProjects.some(up => up.id === p.id);
-                        const matchesUser = filterStatusUserProjects === "Todo" || (filterStatusUserProjects === "Mis proyectos" && isOwner);
-                        
-                        // COMENTADO: Permitimos que Admins Y PROFESORES vean pendientes.
-                        // if (!isAdminOrTeacher && !isOwner && p.status === "pendiente") return false;
-
-                        const matchesPeriod = !selectedPeriod || p.academic_period === selectedPeriod;
-                        const matchesCareer = !filterCareer || p.careerId === filterCareer;
-                        return matchesSearch && matchesReview && matchesStatus && matchesUser && matchesPeriod && matchesCareer;
-                      }).map((p) => {
-                        const careerName = careers.find((c) => c.id === p.careerId)?.name;
-                        const mySkills = getProjectSkillsDisplay(p.id);
+                        const mySkills = getProjectSkillsDisplay(p);
                         
                         // CALCULAR ESTADO PARA MOSTRAR
 
@@ -1046,6 +1004,17 @@ const ProyectPage = () => {
                   </TableBody>
                 </Table>
               </div>
+              {meta && meta.total > 0 && (
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
+                  <span>{meta.total} proyectos · página {page} de {Math.max(meta.totalPages, 1)}</span>
+                  {meta.totalPages > 1 && (
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={!meta.hasPreviousPage} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+                      <Button variant="outline" size="sm" disabled={!meta.hasNextPage} onClick={() => setPage((p) => p + 1)}>Siguiente</Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {success && (<div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300"><Alert className="w-auto bg-green-600 border-green-500 text-white shadow-2xl flex items-center gap-3 pr-6"><CheckCircle2Icon className="h-6 w-6 text-white" /><div><AlertTitle className="text-white font-bold text-lg">Éxito</AlertTitle><AlertDescription className="text-white font-medium text-base">{successMessage}</AlertDescription></div></Alert></div>)}
             {errorAlert && (<div className="fixed top-5 right-5 z-[10002] animate-in slide-in-from-right fade-in duration-300"><Alert className="w-auto bg-red-600 border-red-500 text-white shadow-2xl flex items-center gap-3 pr-6"><AlertCircleIcon className="h-6 w-6 text-white" /><div><AlertTitle className="text-white font-bold text-lg">Error</AlertTitle><AlertDescription className="text-white font-medium text-base">{errorMessage}</AlertDescription></div></Alert></div>)}
@@ -1104,7 +1073,7 @@ const ProyectPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Integrantes</h4><p className="text-sm text-slate-600">{viewProject.userProjects?.length ? viewProject.userProjects.map((m) => m.user.name).join(", ") : (viewProject.user?.name || "Sin integrantes")}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><StatusBadge status={viewProject.status} /></div></div>
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
                 {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
-                <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject.id).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
+                <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
               </div>
             )}
             {viewProject && (
