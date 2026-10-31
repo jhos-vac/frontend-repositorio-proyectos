@@ -63,6 +63,7 @@ import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
 import { useAuthStore } from "@/store/authStore" 
 import { ProjectFilesPanel } from "@/components/projects/ProjectFilesPanel"
 import { MemberPicker } from "@/components/projects/MemberPicker"
+import { SimilarProjectsHint } from "@/components/projects/SimilarProjectsHint"
 import { ReviewBadge } from "@/components/common/ReviewBadge"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
 import { GitBranch } from "lucide-react"
@@ -834,6 +835,7 @@ const ProyectPage = () => {
                     <Form {...createProjectForm}>
                       <form onSubmit={createProjectForm.handleSubmit(handleCreateProyect)}>
                         {renderFormFields(createProjectForm)}
+                        <SimilarProjectsHint name={createProjectForm.watch("name")} description={createProjectForm.watch("description")} />
                         <DialogFooter>
                           <Button type="button" variant="ghost" className="hover:bg-slate-100" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
                           <Button type="submit" className="bg-brand-700 hover:bg-brand-800" disabled={loading}>{loading ? "Creando..." : "Guardar Proyecto"}</Button>
