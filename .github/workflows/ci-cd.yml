@@ -20,6 +20,9 @@ jobs:
         with:
           node-version: 20
       - run: npm install
+      # "vite build" no revisa tipos: se revisan aparte y un error bloquea el despliegue
+      - name: Revisar tipos
+        run: npx tsc -b
       - name: Compilar
         run: npm run build
         env:
