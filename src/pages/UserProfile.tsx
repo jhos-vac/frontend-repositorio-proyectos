@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { useAuthStore } from "@/store/authStore"
+import { useLogout } from "@/lib/useLogout"
 
 type UserData = {
   id: string
@@ -36,6 +37,7 @@ const PasswordRequirement = ({ met, text }: { met: boolean, text: string }) => (
 
 const UserProfile = () => {
   const navigate = useNavigate()
+  const logout = useLogout()
 
   // === MAGIA: DETECTAR ORDEN DE CAMBIO FORZADO DESDE LA URL ===
   const [searchParams, setSearchParams] = useSearchParams()
@@ -474,11 +476,14 @@ const UserProfile = () => {
                     </div>
                     
                     <DialogFooter className="mt-4">
-                      {/* MAGIA: Ocultamos el botón "Cancelar" si el cambio es obligatorio */}
+                      {/* MAGIA: Ocultamos el botón "Cancelar" si el cambio es obligatorio; en su lugar se puede salir */}
                       {!forceChange && (
                         <Button type="button" variant="ghost" className="hover:bg-slate-50" onClick={() => setIsPasswordDialogOpen(false)}>Cancelar</Button>
                       )}
-                      <Button type="submit" className={`bg-brand-700 hover:bg-brand-800 ${forceChange ? 'w-full' : ''}`} disabled={loading || !isPasswordValid || oldPassword === newPassword}>
+                      {forceChange && (
+                        <Button type="button" variant="ghost" className="text-slate-600 hover:bg-slate-50" onClick={logout}>Cerrar sesión</Button>
+                      )}
+                      <Button type="submit" className="bg-brand-700 hover:bg-brand-800" disabled={loading || !isPasswordValid || oldPassword === newPassword}>
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (forceChange ? "Actualizar Contraseña" : "Actualizar")}
                       </Button>
                     </DialogFooter>

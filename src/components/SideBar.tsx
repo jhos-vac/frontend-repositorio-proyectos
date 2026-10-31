@@ -2,7 +2,8 @@ import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
 import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch, CalendarRange, History } from "lucide-react"
-import api, { clearSession } from "@/api/axios"
+import api from "@/api/axios"
+import { useLogout } from "@/lib/useLogout"
 import { useAuthStore } from "@/store/authStore"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import {
@@ -26,7 +27,6 @@ const Sidebar = ({ open, onClose }: Props) => {
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
   const isLogged = useAuthStore((s) => s.isLoggedIn)
-  const logoutStore = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
   const [projectCount, setProjectCount] = useState<number | null>(null)
 
@@ -43,15 +43,7 @@ const Sidebar = ({ open, onClose }: Props) => {
     if (!isStudent) api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
   }, [isLogged, userId, setUser, isStudent])
 
-  const handleLogout = () => {
-    // Revoca la sesión en el servidor (best-effort) y limpia todo lo local YA,
-    // antes de ir al login (si no, GuestRoute ve el token y regresa al panel)
-    const token = localStorage.getItem("token")
-    api.post("/api/auth/logout", null, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {})
-    clearSession()
-    logoutStore()
-    navigate("/login")
-  }
+  const handleLogout = useLogout()
 
   const image = user?.image ? (user.image.startsWith("http") ? user.image : `${baseUrl}${user.image}`) : null
 
