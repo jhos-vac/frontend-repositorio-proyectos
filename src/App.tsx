@@ -9,6 +9,7 @@ import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
 import ReviewPage from './pages/ReviewPage'
 import UsersAdmin from './pages/admin/UsersAdmin'
+import CareersAdmin from './pages/admin/CareersAdmin'
 import AssignmentsAdmin from './pages/admin/AssignmentsAdmin'
 import PeriodsAdmin from './pages/admin/PeriodsAdmin'
 import ProjectsAdmin from './pages/admin/ProjectsAdmin'
@@ -61,6 +62,7 @@ function App() {
           </Route>
           <Route element={<RoleRoute allow={['ADMIN']} />}>
             <Route path="/admin/usuarios" element={<UsersAdmin />} />
+            <Route path="/admin/carreras" element={<CareersAdmin />} />
             <Route path="/admin/asignaciones" element={<AssignmentsAdmin />} />
             <Route path="/admin/proyectos" element={<ProjectsAdmin />} />
             <Route path="/admin/periodos" element={<PeriodsAdmin />} />
