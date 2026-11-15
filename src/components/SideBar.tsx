@@ -81,6 +81,7 @@ const Sidebar = ({ open, onClose }: Props) => {
               <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Administración</p>
               <div className="space-y-1">
                 <NavItem to="/admin/usuarios" icon={Users} label="Usuarios y roles" onClick={onClose} />
+                <NavItem to="/admin/carreras" icon={GraduationCap} label="Carreras" onClick={onClose} />
                 <NavItem to="/admin/asignaciones" icon={Link2} label="Docentes por nivel" onClick={onClose} />
                 <NavItem to="/admin/proyectos" icon={GitBranch} label="Gestión de proyectos" onClick={onClose} />
                 <NavItem to="/admin/periodos" icon={CalendarRange} label="Períodos académicos" onClick={onClose} />
