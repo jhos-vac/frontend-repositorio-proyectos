@@ -1,7 +1,6 @@
 import { Route, Routes, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import UserProfile from './pages/UserProfile'
-import RegisterPage from './pages/RegisterPage'
 import Dashboard from './pages/Dashboard'
 import ProyectPage from './pages/ProyectPage'
 import ForgotPassword from './pages/ForgotPassword'
@@ -37,10 +36,9 @@ function App() {
       {/* Sin sesión, ProtectedRoute manda al login */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-      {/* Acceso (públicas): con sesión abierta se salta al panel */}
+      {/* Acceso (públicas): con sesión abierta se salta al panel. No hay registro público (RN-01) */}
       <Route element={<GuestRoute />}>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
       </Route>
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
