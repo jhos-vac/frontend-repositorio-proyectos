@@ -177,6 +177,7 @@ const ProyectPage = () => {
   const [filterStatus, setFilterStatus] = useState("Todo");
   const [filterReview, setFilterReview] = useState("Todo");
   const [branchTarget, setBranchTarget] = useState<Project | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Project | null>(null)
   const [branchName, setBranchName] = useState("")
   const [branchPeriod, setBranchPeriod] = useState("")
   const [lineage, setLineage] = useState<LineageNode[]>([])
@@ -583,6 +584,27 @@ const ProyectPage = () => {
       setLoading(false)
       setBranchTarget(null)
       showError(error?.response?.data?.message || "No se pudo crear la continuación.")
+    }
+  }
+
+  // Marcar como completado o reabrir: lo decide el docente a cargo (o el admin); el servidor valida
+  const canSetStatus = myRole === 'TEACHER' || myRole === 'ADMIN'
+  const isCompleted = (p: Project | null) => /complet|finaliz/i.test(p?.status || '')
+  const handleSetStatus = async () => {
+    if (!statusTarget) return
+    const status = isCompleted(statusTarget) ? 'en progreso' : 'completado'
+    setLoading(true)
+    try {
+      const res = await api.patch(`/api/projects/${statusTarget.id}/status`, { status })
+      setStatusTarget(null)
+      setViewProject(res.data)
+      await fetchProjects()
+      setLoading(false)
+      setTimeout(() => showSuccess(status === 'completado' ? "Proyecto marcado como completado" : "Proyecto reabierto"), 300)
+    } catch (error: any) {
+      setLoading(false)
+      setStatusTarget(null)
+      showError(error?.response?.data?.message || "No se pudo cambiar el estado del proyecto.")
     }
   }
 
@@ -1088,6 +1110,11 @@ const ProyectPage = () => {
               </div>
             )}
             <DialogFooter className="gap-2">
+              {canSetStatus && viewProject?.reviewStatus === 'approved' && (
+                <Button variant="outline" className="gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50" onClick={() => setStatusTarget(viewProject)}>
+                  <CheckCircle2Icon className="w-4 h-4" /> {isCompleted(viewProject) ? "Reabrir proyecto" : "Marcar como completado"}
+                </Button>
+              )}
               {viewProject?.reviewStatus === 'approved' && (
                 <Button variant="outline" className="gap-2 border-brand-600 text-brand-700 hover:bg-brand-50" onClick={() => openBranchDialog(viewProject)}>
                   <GitBranch className="w-4 h-4" /> Continuar proyecto
@@ -1117,6 +1144,22 @@ const ProyectPage = () => {
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBranchTarget(null)}>Cancelar</Button>
             <Button onClick={handleBranch} disabled={loading || !branchName.trim()} className="gap-2"><GitBranch className="w-4 h-4" /> Crear continuación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!statusTarget} onOpenChange={(open) => !open && setStatusTarget(null)}>
+        <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 z-[100] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-brand-700"><CheckCircle2Icon className="w-5 h-5" /> {isCompleted(statusTarget) ? "Reabrir proyecto" : "Marcar como completado"}</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              {isCompleted(statusTarget)
+                ? <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> volverá a estar en progreso y su equipo podrá modificar otra vez sus archivos y enlaces.</>
+                : <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> quedará como completado: su equipo ya no podrá modificar sus archivos ni enlaces.</>}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setStatusTarget(null)}>Cancelar</Button>
+            <Button onClick={handleSetStatus} disabled={loading} className="gap-2"><CheckCircle2Icon className="w-4 h-4" /> Confirmar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
