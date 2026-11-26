@@ -10,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import * as XLSX from "xlsx"; 
 import api from "@/api/axios";
+import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from "@/lib/institutional";
 
 export function BulkRegisterModal() {
   const [open, setOpen] = useState(false);
@@ -71,9 +72,13 @@ export function BulkRegisterModal() {
           if (!carreraEncontrada) {
             careerErrors.push(`Fila ${i + 1}: la carrera "${nombreCarrera}" no existe en el sistema. Revisa la ortografía.`);
           }
+          const correo = String(item.correo || item.email || "").trim();
+          if (!isInstitutionalEmail(correo)) {
+            careerErrors.push(`Fila ${i + 1} (${correo || "sin correo"}): ${INSTITUTIONAL_EMAIL_HINT}`);
+          }
           return {
             name: String(item.nombre || item.name || "").trim(),
-            email: String(item.correo || item.email || "").trim(),
+            email: correo,
             password: String(item.password || item.contraseña || "").trim(),
             careerId: carreraEncontrada?.id || "",
             roleId: teacherRoleId
@@ -154,7 +159,7 @@ export function BulkRegisterModal() {
                <FileSpreadsheet className="w-6 h-6" /> Registro de Docentes
             </DialogTitle>
             <DialogDescription className="text-slate-500 text-xs">
-              Sube un archivo con columnas: <b>nombre, correo, password, carrera</b> (nombre exacto).
+              Sube un archivo con columnas: <b>nombre, correo, password, carrera</b> (nombre exacto). {INSTITUTIONAL_EMAIL_HINT}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-10 hover:border-emerald-500 transition-colors bg-white group mt-4">

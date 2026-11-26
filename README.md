@@ -66,7 +66,7 @@ La imagen Docker (`Dockerfile`) compila con Node y sirve `dist/` con nginx. `ngi
 ## Rutas protegidas
 
 - `ProtectedRoute`: exige sesión; con clave temporal solo deja entrar al perfil.
-- `GuestRoute`: login y registro; con sesión abierta lleva al panel.
+- `GuestRoute`: login; con sesión abierta lleva al panel. No hay registro público: las cuentas las crea el administrador (RN-01).
 - `RoleRoute`: restringe por rol (`ADMIN`, `TEACHER`, `USER`).
 
 Son solo para la navegación: el backend valida los permisos en cada petición.

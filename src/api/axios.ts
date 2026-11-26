@@ -40,7 +40,7 @@ const doRefresh = async (): Promise<string> => {
     return res.data.accessToken as string;
 };
 
-const AUTH_URLS = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh-token',
+const AUTH_URLS = ['/api/auth/login', '/api/auth/refresh-token',
     '/api/auth/forgot-password', '/api/auth/reset-password'];
 
 api.interceptors.response.use(

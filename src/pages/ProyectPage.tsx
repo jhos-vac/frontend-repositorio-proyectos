@@ -8,34 +8,34 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useParams, useNavigate, useSearchParams } from "react-router-dom" 
+import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { usePeriodStore } from "@/store/periodStore"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTrigger, 
-  DialogFooter, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTrigger,
+  DialogFooter,
+  DialogTitle,
   DialogDescription
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import api from "@/api/axios"
-import { 
-  Loader2, 
-  FileText, 
-  Code2, 
-  CheckCircle2Icon, 
-  Pencil, 
-  Plus, 
-  Check, 
-  AlertCircleIcon, 
+import {
+  Loader2,
+  FileText,
+  Code2,
+  CheckCircle2Icon,
+  Pencil,
+  Plus,
+  Check,
+  AlertCircleIcon,
   Search,
   Zap,
-  Trash2, 
+  Trash2,
   AlertTriangle,
   Lock,
   Globe,
@@ -60,11 +60,12 @@ import {
 } from "@/components/ui/form"
 import { Card } from "@/components/ui/card"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
-import { useAuthStore } from "@/store/authStore" 
+import { useAuthStore } from "@/store/authStore"
 import { ProjectFilesPanel } from "@/components/projects/ProjectFilesPanel"
-import { MemberPicker } from "@/components/projects/MemberPicker"
+import { StudentPicker, studentsError } from "@/components/projects/StudentPicker"
 import { SimilarProjectsHint } from "@/components/projects/SimilarProjectsHint"
-import { ReviewBadge } from "@/components/common/ReviewBadge"
+import { LEVELS, levelLabel } from "@/lib/status"
+import { MODALITY_LABEL, apiError, type Cohort, type Modality, type ProjectStudent } from "@/lib/types"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
 import { GitBranch } from "lucide-react"
 
@@ -78,10 +79,11 @@ const projectSchema = z.object({
   description: z.string().min(1, "La problemática es obligatoria"),
   summary: z.string().optional(),
   deliverables: z.string().optional(),
-  link: z.string().optional(), 
+  link: z.string().optional(),
   cycle: z.string().min(1, "Selecciona un ciclo"),
   academic_period: z.string().min(1, "Selecciona un período"),
   careerId: z.string().min(1, "Selecciona una carrera"),
+  level: z.string().min(1, "Selecciona el nivel"),
   objectives: z.string().min(1, "Debes ingresar al menos un objetivo"),
   status: z.string().optional(),
 })
@@ -97,14 +99,12 @@ type Project = {
   cycle: string
   academic_period: string
   createdBy: string
-  reviewStatus?: string
-  reviewNote?: string | null
+  modality?: Modality
   level?: number | null
   parentId?: string | null
   rootId?: string | null
   branchNumber?: number
   parent?: { id: string; name: string } | null
-  reviewedBy?: { id: string; name: string } | null
   _count?: { branches: number }
   user: {
     id: string
@@ -113,22 +113,22 @@ type Project = {
   }
   startDate?: string | null
   endDate?: string | null
-  userProjects?: { id: string; userId: string; user: { id: string; name: string; level?: number | null } }[]
+  students?: ProjectStudent[]
   careerId: string
   createdAt?: string
   updatedAt?: string
   deliverables: string[]
-  projectSkills?: { id: string, skillId: string, skill: Skill }[] 
+  projectSkills?: { id: string, skillId: string, skill: Skill }[]
 }
 
 type Career = { id: string, name: string }
 type UserType = { id: string, careerId: string, roleId: string, email: string, name: string }
-type Skill = { 
-  id: string, 
-  name: string, 
-  description: string, 
+type Skill = {
+  id: string,
+  name: string,
+  description: string,
   details: any,
-  createdById?: string 
+  createdById?: string
 }
 type Role = { id: string, name: string }
 type PageMeta = { total: number; totalPages: number; hasNextPage: boolean; hasPreviousPage: boolean }
@@ -136,12 +136,12 @@ type PageMeta = { total: number; totalPages: number; hasNextPage: boolean; hasPr
 const LIMIT = 20
 
 const ProyectPage = () => {
-  const { id } = useParams() 
+  const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedPeriod = usePeriodStore((s) => s.period)
 
-  const currentUser = useAuthStore((s) => s.user); 
+  const currentUser = useAuthStore((s) => s.user);
 
   const [projects, setProjects] = useState<Project[]>([])
   const [meta, setMeta] = useState<PageMeta | null>(null)
@@ -151,20 +151,24 @@ const ProyectPage = () => {
   const [user, setUser] = useState<UserType | null>(null)
   const [role, setRole] = useState<Role[]>([])
   const [periods, setPeriods] = useState<{id: string, name: string}[]>([])
-  
+
   const userId = localStorage.getItem('id')
 
-  // Reglas del flujo: el estudiante solo modifica lo suyo mientras NO esté aprobado; admin todo.
+  // BE-08: editan el ADMIN, el docente que registró el proyecto o el asignado a su carrera y nivel
   const myRole = (currentUser as any)?.role?.name as string | undefined
-  const isStudent = myRole === 'USER'
-  const canModify = (p: Project) =>
-    myRole === 'ADMIN' || (p.createdBy === userId && !(isStudent && p.reviewStatus === 'approved'))
+  const [cohorts, setCohorts] = useState<Cohort[]>([])
+  useEffect(() => {
+    if (myRole === 'TEACHER') api.get<Cohort[]>('/api/assignments/mine').then((r) => setCohorts(r.data)).catch(() => setCohorts([]))
+  }, [myRole])
+  const isAssigned = (careerId: string, level?: number | null) => cohorts.some((c) => c.careerId === careerId && c.level === level)
+  const canModify = (p: Project | null) =>
+    !!p && (myRole === 'ADMIN' || p.createdBy === userId || isAssigned(p.careerId, p.level))
 
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loading, setLoading] = useState(false)
-  
+
   const [success, setSuccess] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("") 
+  const [successMessage, setSuccessMessage] = useState("")
 
   const [errorAlert, setErrorAlert] = useState(false)
   const [errorMessage, setErrorMessage] = useState("Hubo un problema.")
@@ -173,20 +177,21 @@ const ProyectPage = () => {
   const [q, setQ] = useState(search) // búsqueda ya aplicada (con retardo)
   const [skillSearch, setSkillSearch] = useState("")
   const [manageSkillSearch, setManageSkillSearch] = useState("")
-  
+
   const [filterStatus, setFilterStatus] = useState("Todo");
-  const [filterReview, setFilterReview] = useState("Todo");
   const [branchTarget, setBranchTarget] = useState<Project | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Project | null>(null)
   const [branchName, setBranchName] = useState("")
   const [branchPeriod, setBranchPeriod] = useState("")
+  const [branchLevel, setBranchLevel] = useState("")
   const [lineage, setLineage] = useState<LineageNode[]>([])
   const [filterCareer, setFilterCareer] = useState("");
   const [filterStatusUserProjects, setFilterStatusUserProjects] = useState("Todo")
-  
+
   // COMENTADO: Quitamos el estado pendiente del filtro de opciones
   /*
-  const statusOptions = isAdminOrTeacher 
-    ? ["Todo", "en progreso", "completado", "pendiente"] 
+  const statusOptions = isAdminOrTeacher
+    ? ["Todo", "en progreso", "completado", "pendiente"]
     : ["Todo", "en progreso", "completado"];
   */
   const statusOptions = ["Todo", "en progreso", "completado"];
@@ -202,9 +207,9 @@ const ProyectPage = () => {
   useEffect(() => {
     setSearch(searchParams.get("q") || "")
     if (searchParams.get("nuevo") === "1") {
-      createProjectForm.reset({ ...createProjectForm.getValues(), careerId: isStudent ? ((currentUser as any)?.careerId || '') : '' })
+      createProjectForm.reset({ ...createProjectForm.getValues(), careerId: '', level: '' })
       setSelectedSkills([])
-      setSelectedMembers([])
+      setSelectedStudents([]); setModality('individual'); setStudentsErr(null)
       setIsCreateOpen(true)
       const next = new URLSearchParams(searchParams)
       next.delete("nuevo")
@@ -212,12 +217,14 @@ const ProyectPage = () => {
     }
   }, [searchParams])
   const [editingProject, setEditingProject] = useState<Project | null>(null)
-  
+
   const [isSkillsManagerOpen, setIsSkillsManagerOpen] = useState(false)
   const [isCreateSkillOpen, setIsCreateSkillOpen] = useState(false)
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
-  
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [modality, setModality] = useState<Modality>('individual')
+  const [studentsErr, setStudentsErr] = useState<string | null>(null)
+
   const [activeTab, setActiveTab] = useState<"mine" | "community">("mine")
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null)
   const [editSkillName, setEditSkillName] = useState('')
@@ -235,7 +242,7 @@ const ProyectPage = () => {
     defaultValues: {
       name: "", description: "", summary: "", deliverables: "", link: "",
       cycle: "", academic_period: "",
-      careerId: "", objectives: "", status: "en progreso",
+      careerId: "", level: "", objectives: "", status: "en progreso",
     }
   })
 
@@ -244,7 +251,7 @@ const ProyectPage = () => {
     defaultValues: {
       name: "", description: "", summary: "", deliverables: "", link: "",
       cycle: "", academic_period: "",
-      careerId: "", objectives: "", status: "",
+      careerId: "", level: "", objectives: "", status: "",
     }
   })
 
@@ -262,7 +269,7 @@ const ProyectPage = () => {
 
   // Búsqueda con retardo y vuelta a la página 1 cuando cambia cualquier filtro
   useEffect(() => { const t = setTimeout(() => setQ(search), 350); return () => clearTimeout(t) }, [search])
-  useEffect(() => { setPage(1) }, [q, filterStatus, filterReview, filterCareer, filterStatusUserProjects, selectedPeriod])
+  useEffect(() => { setPage(1) }, [q, filterStatus, filterCareer, filterStatusUserProjects, selectedPeriod])
 
   // El servidor filtra y pagina; solo se descarga la página visible
   const requestId = useRef(0)
@@ -273,7 +280,6 @@ const ProyectPage = () => {
       const params: Record<string, string | number | boolean> = { page, limit: LIMIT }
       if (q.trim()) params.search = q.trim()
       if (filterStatus !== "Todo") params.status = filterStatus
-      if (filterReview !== "Todo") params.reviewStatus = filterReview
       if (filterCareer) params.careerId = filterCareer
       if (filterStatusUserProjects === "Mis proyectos") params.mine = true
       if (selectedPeriod) params.period = selectedPeriod
@@ -286,7 +292,7 @@ const ProyectPage = () => {
     } finally {
       if (current === requestId.current) setLoadingProjects(false)
     }
-  }, [page, q, filterStatus, filterReview, filterCareer, filterStatusUserProjects, selectedPeriod])
+  }, [page, q, filterStatus, filterCareer, filterStatusUserProjects, selectedPeriod])
 
   useEffect(() => { fetchProjects() }, [fetchProjects])
 
@@ -313,7 +319,7 @@ const ProyectPage = () => {
     const fetchData = async () => {
       try {
         const [careersRes, rolesRes] = await Promise.all([
-          api.get('/api/careers?limit=1000'), 
+          api.get('/api/careers?limit=1000'),
           api.get('/api/roles?limit=1000')
         ])
         const careersData = careersRes.data
@@ -326,7 +332,7 @@ const ProyectPage = () => {
     }
     fetchData()
     fetchSkillsData()
-    fetchPeriods() 
+    fetchPeriods()
 
     const fetchUser = async () => {
       if (!userId) return
@@ -378,10 +384,10 @@ const ProyectPage = () => {
       await api.post('/api/skills', {
         name: values.name,
         description: values.description,
-        details: { level: "N/A", category: "N/A" } 
+        details: { level: "N/A", category: "N/A" }
       })
       await fetchSkillsData();
-      setLoading(false); 
+      setLoading(false);
       setTimeout(() => showSuccess("Habilidad creada correctamente."), 300);
       createSkillForm.reset();
       setIsCreateSkillOpen(false);
@@ -436,15 +442,15 @@ const ProyectPage = () => {
   }
 
   const handleCreateProyect = async (values: z.infer<typeof projectSchema>) => {
-    setLoading(true) 
+    const sErr = studentsError(modality, selectedStudents)
+    setStudentsErr(sErr)
+    if (sErr) return
+    setLoading(true)
     try {
       const objectivesArray = values.objectives.split("\n").filter(l => l.trim().length > 0)
       let deliverablesArray = values.deliverables ? values.deliverables.split("\n").filter(l => l.trim().length > 0) : []
-      
-      // COMENTADO: El estado inicial pasa a ser en progreso directamente
-      // const initialStatus = "pendiente";
-      const initialStatus = "en progreso"; 
 
+      // BE-08: lo registra el docente con sus estudiantes; nace en progreso y sin revisión
       const res = await api.post('/api/projects', {
         name: values.name,
         description: values.description,
@@ -452,10 +458,11 @@ const ProyectPage = () => {
         cycle: values.cycle,
         academic_period: values.academic_period,
         careerId: values.careerId,
-        status: initialStatus,
+        level: Number(values.level),
+        modality,
+        studentIds: selectedStudents,
         objectives: objectivesArray,
-        deliverables: deliverablesArray, 
-        createdBy: userId,
+        deliverables: deliverablesArray,
       });
 
       const projectId = res.data.id;
@@ -465,26 +472,17 @@ const ProyectPage = () => {
         )).catch(e => console.log("Error menor guardando skills:", e));
       }
 
-      if (projectId && selectedMembers.length > 0) {
-        await api.put(`/api/projects/${projectId}/members`, { userIds: selectedMembers })
-          .catch(e => console.log("Error menor guardando integrantes:", e));
-      }
-
-      setIsCreateOpen(false); 
+      setIsCreateOpen(false);
       createProjectForm.reset();
       setSelectedSkills([]);
-      setSelectedMembers([]);
+      setSelectedStudents([]);
       fetchProjects();
       fetchSkillsData();
       setLoading(false);
-      if (isStudent) {
-        navigate('/mis-proyectos', { state: { created: true } })
-        return
-      }
       setTimeout(() => showSuccess("Proyecto guardado correctamente"), 300);
     } catch (error) {
-      setLoading(false); 
-      showError("Hubo un problema al crear el proyecto.");
+      setLoading(false);
+      showError(apiError(error, "Hubo un problema al crear el proyecto."));
     }
   };
 
@@ -504,6 +502,9 @@ const ProyectPage = () => {
 */
   const handleEditProyect = async (values: z.infer<typeof projectSchema>) => {
     if (!editingProject) return
+    const sErr = studentsError(modality, selectedStudents)
+    setStudentsErr(sErr)
+    if (sErr) return
     setLoading(true)
     try {
       const objectivesArray = values.objectives.split("\n").filter(l => l.trim().length > 0)
@@ -516,14 +517,16 @@ const ProyectPage = () => {
         cycle: values.cycle,
         academic_period: values.academic_period,
         careerId: values.careerId,
-        status: values.status, 
+        level: Number(values.level),
+        modality,
+        studentIds: selectedStudents,
         objectives: objectivesArray,
         deliverables: deliverablesArray,
       });
 
       const currentRelations = editingProject.projectSkills || [];
       const currentSkillIds = currentRelations.map((ps: any) => ps.skillId || ps.skill?.id);
-      
+
       const skillsToAdd = selectedSkills.filter(sid => !currentSkillIds.includes(sid));
       const relationsToDelete = currentRelations.filter((rel: any) => !selectedSkills.includes(rel.skillId || rel.skill?.id));
 
@@ -543,21 +546,19 @@ const ProyectPage = () => {
         const relId = rel.id;
         if (relId) promises.push(api.delete(`/api/porjects-skills/${relId}`));
       });
-      
+
       await Promise.all(promises);
-      await api.put(`/api/projects/${editingProject.id}/members`, { userIds: selectedMembers })
-        .catch(e => console.log("Error menor guardando integrantes:", e));
-      
+
       await fetchProjects();
       await fetchSkillsData();
-      
+
       setIsEditOpen(false)
       setLoading(false);
       setTimeout(() => showSuccess("Proyecto actualizado correctamente"), 300);
     } catch (error) {
       console.error(error);
       setLoading(false);
-      showError("Error al editar el proyecto.");
+      showError(apiError(error, "Error al editar el proyecto."));
     }
   };
 
@@ -565,24 +566,45 @@ const ProyectPage = () => {
     setBranchTarget(project)
     setBranchName(`${project.name} (continuación)`)
     setBranchPeriod(periods[0]?.name || "")
+    const allowed = formLevels(project.careerId)
+    setBranchLevel(String(project.level && allowed.includes(project.level) ? project.level : (allowed[0] ?? "")))
   }
 
   const handleBranch = async () => {
     if (!branchTarget) return
     setLoading(true)
     try {
-      const res = await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined, academic_period: branchPeriod || undefined })
+      await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined, academic_period: branchPeriod || undefined, level: branchLevel ? Number(branchLevel) : undefined })
       setBranchTarget(null)
       setIsViewOpen(false)
       await fetchProjects()
       setLoading(false)
-      setTimeout(() => showSuccess(res.data?.reviewStatus === 'pending'
-        ? "Continuación creada: quedó pendiente de revisión de tu docente"
-        : "Continuación creada correctamente"), 300)
+      setTimeout(() => showSuccess("Continuación creada: edítala para asignar sus estudiantes"), 300)
     } catch (error: any) {
       setLoading(false)
       setBranchTarget(null)
       showError(error?.response?.data?.message || "No se pudo crear la continuación.")
+    }
+  }
+
+  // Marcar como completado o reabrir: lo decide el docente a cargo (o el admin); el servidor valida
+  const canSetStatus = canModify(viewProject)
+  const isCompleted = (p: Project | null) => /complet|finaliz/i.test(p?.status || '')
+  const handleSetStatus = async () => {
+    if (!statusTarget) return
+    const status = isCompleted(statusTarget) ? 'en progreso' : 'completado'
+    setLoading(true)
+    try {
+      const res = await api.patch(`/api/projects/${statusTarget.id}/status`, { status })
+      setStatusTarget(null)
+      setViewProject(res.data)
+      await fetchProjects()
+      setLoading(false)
+      setTimeout(() => showSuccess(status === 'completado' ? "Proyecto marcado como completado" : "Proyecto reabierto"), 300)
+    } catch (error: any) {
+      setLoading(false)
+      setStatusTarget(null)
+      showError(error?.response?.data?.message || "No se pudo cambiar el estado del proyecto.")
     }
   }
 
@@ -621,9 +643,11 @@ const ProyectPage = () => {
   const loadProjectData = (project: Project) => {
     setEditingProject(project)
     const existingSkillIds = project.projectSkills?.map(ps => ps.skillId || ps.skill.id) || [];
-    
+
     setSelectedSkills(existingSkillIds);
-    setSelectedMembers((project.userProjects || []).map((m) => m.userId).filter((id) => id !== project.createdBy));
+    setSelectedStudents((project.students || []).map((s) => s.student.id));
+    setModality(project.modality || ((project.students?.length ?? 0) === 1 ? 'individual' : 'grupal'));
+    setStudentsErr(null);
 
     const { link, textItems } = parseDeliverables(project.deliverables || []);
 
@@ -636,6 +660,7 @@ const ProyectPage = () => {
       cycle: project.cycle,
       academic_period: project.academic_period,
       careerId: project.careerId,
+      level: project.level ? String(project.level) : "",
       objectives: project.objectives?.join("\n") || "",
       status: project.status
     })
@@ -691,7 +716,7 @@ const ProyectPage = () => {
             {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </Button>
         </div>
-        <div className="relative" style={{ minHeight: isVisible ? '3rem' : 'auto', maxHeight: isVisible ? '5.5rem' : 'auto' }}> 
+        <div className="relative" style={{ minHeight: isVisible ? '3rem' : 'auto', maxHeight: isVisible ? '5.5rem' : 'auto' }}>
            {isVisible ? (
              <div className="h-full overflow-y-auto px-2 custom-scrollbar">
                <p className="text-xs text-slate-400 leading-snug">
@@ -728,6 +753,11 @@ const ProyectPage = () => {
     )
   }
 
+  // Carrera y nivel del formulario: el docente solo ve los que tiene asignados; el ADMIN, todos
+  const formCareers = myRole === 'ADMIN' ? careers : careers.filter((c) => cohorts.some((x) => x.careerId === c.id))
+  const formLevels = (careerId: string): number[] =>
+    myRole === 'ADMIN' ? [...LEVELS] : cohorts.filter((x) => x.careerId === careerId).map((x) => x.level).sort()
+
   const renderFormFields = (form: any) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
       <FormField control={form.control} name="name" render={({ field }) => (
@@ -739,7 +769,7 @@ const ProyectPage = () => {
       <FormField control={form.control} name="summary" render={({ field }) => (
         <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Resumen</FormLabel><FormControl><Textarea className="bg-white border-slate-300 mt-1" {...field} /></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
       )} />
-      
+
       <FormField control={form.control} name="cycle" render={({ field }) => (
         <FormItem>
           <div className="flex items-center justify-between h-8 mb-1">
@@ -775,9 +805,14 @@ const ProyectPage = () => {
       )} />
 
       <FormField control={form.control} name="careerId" render={({ field }) => (
-        <FormItem className="md:col-span-2"><FormLabel className="text-slate-400">Carrera</FormLabel><FormControl><select disabled={isStudent} title={isStudent ? "Tu carrera se toma de tu perfil" : undefined} className="w-full mt-1 h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3 disabled:opacity-70" {...field}><option value="">Seleccionar carrera...</option>{careers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
+        <FormItem><FormLabel className="text-slate-400">Carrera</FormLabel><FormControl><select className="w-full mt-1 h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field} onChange={(e) => { field.onChange(e); form.setValue("level", ""); setSelectedStudents([]) }}><option value="">Seleccionar carrera...</option>{formCareers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
       )} />
-      <MemberPicker careerId={form.watch("careerId")} selfId={userId} value={selectedMembers} onChange={setSelectedMembers} />
+      <FormField control={form.control} name="level" render={({ field }) => (
+        <FormItem><FormLabel className="text-slate-400">Nivel</FormLabel><FormControl><select className="w-full mt-1 h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field} onChange={(e) => { field.onChange(e); setSelectedStudents([]) }}><option value="">Seleccionar nivel...</option>{formLevels(form.watch("careerId")).map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}</select></FormControl><FormMessage className="text-red-600 text-xs" /></FormItem>
+      )} />
+      {myRole === 'TEACHER' && cohorts.length === 0 && <p className="md:col-span-2 text-xs text-amber-600">Aún no tienes carreras ni niveles asignados: pide al administrador que te asigne para registrar proyectos.</p>}
+      <StudentPicker careerId={form.watch("careerId")} level={Number(form.watch("level")) || null} modality={modality} onModality={(m) => { setModality(m); setStudentsErr(null) }}
+        value={selectedStudents} onChange={(ids) => { setSelectedStudents(ids); setStudentsErr(null) }} error={studentsErr} />
       <div className="md:col-span-2 bg-white p-4 rounded-lg border border-slate-200">
         <Label className="text-brand-700 font-bold mb-3 block items-center gap-2"><Code2 className="w-4 h-4" /> Habilidades Requeridas</Label>
         <div className="relative mb-3">
@@ -826,7 +861,7 @@ const ProyectPage = () => {
               {(
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                   <DialogTrigger asChild>
-                    <Button className="hidden" aria-hidden tabIndex={-1} onClick={() => { createProjectForm.reset(); setSelectedSkills([]); setSelectedMembers([]) }}>
+                    <Button className="hidden" aria-hidden tabIndex={-1} onClick={() => { createProjectForm.reset(); setSelectedSkills([]); setSelectedStudents([]); setModality('individual') }}>
                       + Nuevo Proyecto
                     </Button>
                   </DialogTrigger>
@@ -846,22 +881,13 @@ const ProyectPage = () => {
                 </Dialog>
               )}
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-6 p-1">
               <div className="space-y-1">
                 <h5 className="text-xs font-semibold text-brand-700/80 uppercase tracking-wide">Estado</h5>
                 <div className="flex flex-wrap gap-2">
                   {statusOptions.map((status) => (
                     <Badge key={status} onClick={() => setFilterStatus(status)} variant={filterStatus === status ? "default" : "outline"} className={`cursor-pointer px-3 py-1 transition-all ${filterStatus === status ? "bg-brand-700 hover:bg-brand-800 text-white border-brand-600" : "text-slate-500 border-slate-300 hover:border-brand-600 hover:text-brand-700"}`}>{capitalizeFirst(status)}</Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <h5 className="text-xs font-semibold text-brand-700/80 uppercase tracking-wide">Revisión</h5>
-                <div className="flex flex-wrap gap-2">
-                  {[["Todo", "Todo"], ["approved", "Aprobados"], ["pending", "Pendientes"], ["rejected", "Rechazados"]].map(([value, label]) => (
-                    <Badge key={value} onClick={() => setFilterReview(value)} variant={filterReview === value ? "default" : "outline"} className={`cursor-pointer px-3 py-1 transition-all ${filterReview === value ? "bg-brand-700 hover:bg-brand-800 text-white" : "border-slate-300 text-slate-600 hover:bg-slate-100"}`}>{label}</Badge>
                   ))}
                 </div>
               </div>
@@ -900,7 +926,7 @@ const ProyectPage = () => {
             <div className="bg-slate-50 rounded-xl border border-slate-200 shadow-xl overflow-hidden">
               <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
                 <h2 className="text-lg font-bold text-slate-900">Directorio Completo de Proyectos</h2>
-                
+
                 {(
                   <Dialog open={isSkillsManagerOpen} onOpenChange={setIsSkillsManagerOpen}>
                     <DialogTrigger asChild>
@@ -948,7 +974,7 @@ const ProyectPage = () => {
                       projects.map((p) => {
                         const careerName = careers.find((c) => c.id === p.careerId)?.name;
                         const mySkills = getProjectSkillsDisplay(p);
-                        
+
                         // CALCULAR ESTADO PARA MOSTRAR
 
                         // COMENTADO: Quitamos el fondo rojo para pendientes
@@ -962,10 +988,9 @@ const ProyectPage = () => {
                                   <p className="font-semibold text-slate-900 leading-tight group-hover:text-brand-700" title={p.name}>{p.name}</p>
                                   <p className="mt-0.5 text-xs text-slate-500">{p.user?.name || "Sin responsable"} · {careerName || "Sin carrera"}</p>
                                   {p.parent && (<p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-700"><GitBranch className="w-3 h-3" /> Continuación de {p.parent.name}</p>)}
-                                  {p.reviewStatus === 'rejected' && p.reviewNote && p.createdBy === userId && (<p className="mt-1 text-xs text-red-600">Motivo: {p.reviewNote}</p>)}
                                   <p className="mt-1.5 text-sm text-slate-500 line-clamp-2 max-w-md">{p.description}</p>
                                   <p className="mt-1.5 text-[11px] text-slate-400">{[p.academic_period, p.cycle].filter(Boolean).join(" · ")}</p>
-                                  {(p.userProjects?.length ?? 0) > 1 && (<p className="mt-1 text-[11px] text-slate-500">Integrantes: {p.userProjects!.map((m) => m.user.name).join(", ")}</p>)}
+                                  {(p.students?.length ?? 0) > 0 && (<p className="mt-1 text-[11px] text-slate-500">{MODALITY_LABEL[p.modality || 'grupal']}: {p.students!.map((m) => m.student.name).join(", ")}</p>)}
                                 </div>
                               </div>
                             </TableCell>
@@ -983,7 +1008,7 @@ const ProyectPage = () => {
                                 {/* {displayStatus === 'pendiente' ? (
                                   <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 flex w-fit items-center gap-1"><Clock className="w-3 h-3" /> Pendiente</Badge>
                                 ) : ( */}
-                                  <div className="flex flex-wrap gap-1.5"><StatusBadge status={p.status} startDate={p.startDate} endDate={p.endDate} /><ReviewBadge status={p.reviewStatus} /></div>
+                                  <div className="flex flex-wrap gap-1.5"><StatusBadge status={p.status} startDate={p.startDate} endDate={p.endDate} />{p.level ? <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{levelLabel(p.level)}</span> : null}</div>
                                 {/* )} */}
                                 <div className="text-xs text-slate-500"><span>Período:</span> <br />{p.academic_period || "—"}</div>
                               </div>
@@ -993,7 +1018,7 @@ const ProyectPage = () => {
                                 <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                                   {/* COMENTADO: Botón de aprobar proyecto ya no es necesario */}
                                   {/* {isAdmin && p.status === 'pendiente' && (<Button size="icon" className="h-8 w-8 bg-green-600 hover:bg-green-700 text-white mr-2" onClick={(e) => handleApproveProject(e, p)}><Check className="w-4 h-4" /></Button>)} */}
-                                  {p.reviewStatus === 'approved' && (<Button variant="ghost" size="icon" title="Continuar este proyecto" aria-label="Continuar este proyecto" className="h-8 w-8 text-brand-600 hover:text-brand-700 hover:bg-brand-50" onClick={() => openBranchDialog(p)}><GitBranch className="w-4 h-4" /></Button>)}
+                                  {formLevels(p.careerId).length > 0 && (<Button variant="ghost" size="icon" title="Continuar este proyecto" aria-label="Continuar este proyecto" className="h-8 w-8 text-brand-600 hover:text-brand-700 hover:bg-brand-50" onClick={() => openBranchDialog(p)}><GitBranch className="w-4 h-4" /></Button>)}
                                   {canModify(p) && (<Button variant="ghost" size="icon" title="Editar" aria-label="Editar" className="h-8 w-8 text-brand-600 hover:text-brand-700 hover:bg-brand-50" onClick={() => loadProjectData(p)}><Pencil className="w-4 h-4" /></Button>)}
                                   {canModify(p) && (<Dialog><DialogTrigger asChild><Button variant="ghost" size="icon" title="Eliminar" aria-label="Eliminar" className="h-8 w-8 text-red-600 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></Button></DialogTrigger><DialogContent className="bg-slate-50 border-slate-200 text-slate-900"><DialogHeader><DialogTitle>¿Eliminar Proyecto?</DialogTitle></DialogHeader><DialogDescription className="text-slate-500">Esta acción no se puede deshacer.</DialogDescription><DialogFooter><Button className="bg-red-600 hover:bg-red-700" onClick={(e) => handleDeleteProyect(e, p.id)}>Confirmar</Button></DialogFooter></DialogContent></Dialog>)}
                                 </div>
@@ -1027,13 +1052,6 @@ const ProyectPage = () => {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50 border-slate-200 text-slate-900 z-[90]">
           <DialogHeader><DialogTitle className="text-xl font-bold text-brand-700">Editar Proyecto</DialogTitle></DialogHeader>
-          {editingProject?.reviewStatus === 'rejected' && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-              <p className="font-semibold">Este proyecto fue rechazado</p>
-              {editingProject.reviewNote && <p className="mt-1 whitespace-pre-wrap">{editingProject.reviewNote}</p>}
-              <p className="mt-1 text-xs">Al guardar tus correcciones se enviará de nuevo a revisión.</p>
-            </div>
-          )}
           <Form {...editProjectForm}>
             <form onSubmit={editProjectForm.handleSubmit(handleEditProyect)}>
                 {renderFormFields(editProjectForm)}
@@ -1058,7 +1076,6 @@ const ProyectPage = () => {
             {viewProject && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center gap-2">
-                  <ReviewBadge status={viewProject.reviewStatus} />
                   {viewProject.level ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">Nivel {viewProject.level}</span> : null}
                   {viewProject.parent && (
                     <button type="button" onClick={() => openProject(viewProject.parent!.id)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
@@ -1066,20 +1083,14 @@ const ProyectPage = () => {
                     </button>
                   )}
                 </div>
-                {viewProject.reviewNote && (
-                  <div className={`rounded-lg border p-3 text-sm ${viewProject.reviewStatus === 'rejected' ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                    <p className="text-xs font-semibold uppercase tracking-wide">Observación del docente{viewProject.reviewedBy ? ` · ${viewProject.reviewedBy.name}` : ''}</p>
-                    <p className="mt-1 whitespace-pre-wrap">{viewProject.reviewNote}</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Integrantes</h4><p className="text-sm text-slate-600">{viewProject.userProjects?.length ? viewProject.userProjects.map((m) => m.user.name).join(", ") : (viewProject.user?.name || "Sin integrantes")}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><StatusBadge status={viewProject.status} /></div></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estudiantes · {MODALITY_LABEL[viewProject.modality || 'grupal']}</h4><p className="text-sm text-slate-600">{viewProject.students?.length ? viewProject.students.map((m) => m.student.name).join(", ") : "Sin estudiantes asignados"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Docente</h4><p className="text-sm text-slate-600">{viewProject.user?.name || "Sin responsable"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><StatusBadge status={viewProject.status} /></div></div>
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
                 {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
                 <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
               </div>
             )}
             {viewProject && (
-              <div className="mt-4"><ProjectFilesPanel project={viewProject as any} userId={userId} isAdmin={!!isAdmin} /></div>
+              <div className="mt-4"><ProjectFilesPanel project={viewProject as any} canEdit={canModify(viewProject)} isAdmin={!!isAdmin} /></div>
             )}
             {lineage.length > 1 && viewProject && (
               <div>
@@ -1088,7 +1099,12 @@ const ProyectPage = () => {
               </div>
             )}
             <DialogFooter className="gap-2">
-              {viewProject?.reviewStatus === 'approved' && (
+              {canSetStatus && (
+                <Button variant="outline" className="gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50" onClick={() => setStatusTarget(viewProject)}>
+                  <CheckCircle2Icon className="w-4 h-4" /> {isCompleted(viewProject) ? "Reabrir proyecto" : "Marcar como completado"}
+                </Button>
+              )}
+              {viewProject && formLevels(viewProject.careerId).length > 0 && (
                 <Button variant="outline" className="gap-2 border-brand-600 text-brand-700 hover:bg-brand-50" onClick={() => openBranchDialog(viewProject)}>
                   <GitBranch className="w-4 h-4" /> Continuar proyecto
                 </Button>
@@ -1103,7 +1119,7 @@ const ProyectPage = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-brand-700"><GitBranch className="w-5 h-5" /> Continuar proyecto</DialogTitle>
             <DialogDescription className="text-slate-500">
-              Se creará un proyecto nuevo enlazado a <span className="font-semibold text-slate-900">{branchTarget?.name}</span>, con su problemática, objetivos y tecnologías como punto de partida. El original no se modifica{isStudent ? " y tu continuación quedará pendiente de revisión de tu docente" : ""}.
+              Se creará un proyecto nuevo enlazado a <span className="font-semibold text-slate-900">{branchTarget?.name}</span>, con su problemática, objetivos y tecnologías como punto de partida. El original no se modifica. Después de crearla, edítala para asignar sus estudiantes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
@@ -1113,10 +1129,30 @@ const ProyectPage = () => {
             <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
               {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
             </select>
+            <Label htmlFor="branch-level" className="mt-3 block">Nivel de la continuación</Label>
+            <select id="branch-level" value={branchLevel} onChange={(e) => setBranchLevel(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
+              {(branchTarget ? formLevels(branchTarget.careerId) : []).map((l) => (<option key={l} value={l}>{levelLabel(l)}</option>))}
+            </select>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setBranchTarget(null)}>Cancelar</Button>
             <Button onClick={handleBranch} disabled={loading || !branchName.trim()} className="gap-2"><GitBranch className="w-4 h-4" /> Crear continuación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!statusTarget} onOpenChange={(open) => !open && setStatusTarget(null)}>
+        <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 z-[100] max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-brand-700"><CheckCircle2Icon className="w-5 h-5" /> {isCompleted(statusTarget) ? "Reabrir proyecto" : "Marcar como completado"}</DialogTitle>
+            <DialogDescription className="text-slate-500">
+              {isCompleted(statusTarget)
+                ? <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> volverá a estar en progreso y se podrán modificar otra vez sus archivos y enlaces.</>
+                : <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> quedará como completado: ya no se podrán modificar sus archivos ni enlaces.</>}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setStatusTarget(null)}>Cancelar</Button>
+            <Button onClick={handleSetStatus} disabled={loading} className="gap-2"><CheckCircle2Icon className="w-4 h-4" /> Confirmar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

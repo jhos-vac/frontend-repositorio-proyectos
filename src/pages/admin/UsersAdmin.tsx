@@ -7,21 +7,20 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/common/EmptyState"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
-import { LEVELS, ROLE_LABEL, levelLabel } from "@/lib/status"
+import { ROLE_LABEL } from "@/lib/status"
 import { apiError, selectCls, type AppUser, type Career, type Paged, type Role } from "@/lib/types"
 import { useAuthStore } from "@/store/authStore"
 
-type Form = { name: string; email: string; role: string; careerId: string; level: string; password: string }
-const EMPTY: Form = { name: "", email: "", role: "USER", careerId: "", level: "1", password: "" }
+type Form = { name: string; email: string; role: string; careerId: string; password: string }
+const EMPTY: Form = { name: "", email: "", role: "TEACHER", careerId: "", password: "" }
 const LIMIT = 10
 
 const ROLE_PILL: Record<string, string> = {
   ADMIN: "bg-purple-50 text-purple-700 ring-purple-200",
   TEACHER: "bg-blue-50 text-blue-700 ring-blue-200",
-  USER: "bg-emerald-50 text-emerald-700 ring-emerald-200",
 }
 
-/** Administración de integrantes: alta, edición, cambio de rol/carrera/nivel, reinicio de clave y baja. */
+/** Cuentas de docentes y administradores: alta, edición, rol, carrera, reinicio de clave y baja. Los estudiantes no tienen cuenta (ver /estudiantes). */
 export default function UsersAdmin() {
   const me = useAuthStore((s) => s.user?.id)
   const [rows, setRows] = useState<AppUser[]>([])
@@ -29,7 +28,7 @@ export default function UsersAdmin() {
   const [careers, setCareers] = useState<Career[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [page, setPage] = useState(1)
-  const [fRole, setFRole] = useState(""); const [fCareer, setFCareer] = useState(""); const [fLevel, setFLevel] = useState("")
+  const [fRole, setFRole] = useState(""); const [fCareer, setFCareer] = useState("")
   const [search, setSearch] = useState(""); const [q, setQ] = useState("")
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -52,11 +51,11 @@ export default function UsersAdmin() {
     setLoading(true)
     try {
       const p = new URLSearchParams({ page: String(page), limit: String(LIMIT), order: "desc" })
-      if (fRole) p.set("role", fRole); if (fCareer) p.set("careerId", fCareer); if (fLevel) p.set("level", fLevel); if (q) p.set("search", q)
+      if (fRole) p.set("role", fRole); if (fCareer) p.set("careerId", fCareer); if (q) p.set("search", q)
       const res = await api.get<Paged<AppUser>>(`/api/users?${p}`)
       setRows(res.data.data); setMeta(res.data.meta)
     } catch (e) { flash(false, apiError(e, "No se pudo cargar los usuarios.")) } finally { setLoading(false) }
-  }, [page, fRole, fCareer, fLevel, q])
+  }, [page, fRole, fCareer, q])
   useEffect(() => { load() }, [load])
 
   const roleId = (name: string) => roles.find((r) => r.name === name)?.id
@@ -65,7 +64,7 @@ export default function UsersAdmin() {
   const openCreate = () => { setForm({ ...EMPTY, careerId: careers[0]?.id || "" }); setFormErr(""); setEditing(null); setDialog("create") }
   const openEdit = (u: AppUser) => {
     setEditing(u); setFormErr("")
-    setForm({ name: u.name, email: u.email, role: u.role?.name || "USER", careerId: u.careerId, level: u.level ? String(u.level) : "1", password: "" })
+    setForm({ name: u.name, email: u.email, role: u.role?.name || "TEACHER", careerId: u.careerId, password: "" })
     setDialog("edit")
   }
 
@@ -77,14 +76,12 @@ export default function UsersAdmin() {
     try {
       if (dialog === "create") {
         const body: any = { name: form.name.trim(), email: form.email.trim(), password: form.password, careerId: form.careerId }
-        if (form.role === "USER") { body.level = Number(form.level); body.roleId = roleId("USER"); await api.post("/api/users", body) }
-        else if (form.role === "TEACHER") await api.post("/api/users/create-teacher", body)
+        if (form.role === "TEACHER") await api.post("/api/users/create-teacher", body)
         else await api.post("/api/auth/register-admin", body)
         flash(true, "Usuario creado. Deberá cambiar su contraseña al ingresar.")
       } else if (editing) {
         const body: any = {
           name: form.name.trim(), email: form.email.trim(), roleId: roleId(form.role), careerId: form.careerId,
-          level: form.role === "USER" ? Number(form.level) : null,
         }
         if (form.password) body.password = form.password
         await api.patch(`/api/users/${editing.id}/admin`, body)
@@ -106,15 +103,15 @@ export default function UsersAdmin() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Usuarios y roles</h1>
-          <p className="mt-1 text-sm text-slate-500">Crea, edita y elimina integrantes, y reasigna su rol, carrera y nivel.</p>
+          <p className="mt-1 text-sm text-slate-500">Cuentas de docentes y administradores. Los estudiantes se registran en «Estudiantes».</p>
         </div>
         <Button onClick={openCreate} className="gap-1.5"><Plus className="size-4" /> Nuevo usuario</Button>
       </div>
 
       {msg && <div role="status" className={`rounded-lg border px-4 py-2.5 text-sm ${msg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>{msg.text}</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2 lg:col-span-1">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nombre o correo" className="pl-9" aria-label="Buscar" />
         </div>
@@ -123,9 +120,6 @@ export default function UsersAdmin() {
         </select>
         <select className={selectCls} value={fCareer} onChange={(e) => { setFCareer(e.target.value); setPage(1) }} aria-label="Carrera">
           <option value="">Todas las carreras</option>{careers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select className={selectCls} value={fLevel} onChange={(e) => { setFLevel(e.target.value); setPage(1) }} aria-label="Nivel">
-          <option value="">Todos los niveles</option>{LEVELS.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
         </select>
       </div>
 
@@ -137,15 +131,14 @@ export default function UsersAdmin() {
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wider text-slate-500">
-              <tr><th className="px-4 py-3">Usuario</th><th className="px-4 py-3">Rol</th><th className="px-4 py-3">Carrera</th><th className="px-4 py-3">Nivel</th><th className="px-4 py-3 text-right">Proyectos</th><th className="px-4 py-3 text-right">Acciones</th></tr>
+              <tr><th className="px-4 py-3">Usuario</th><th className="px-4 py-3">Rol</th><th className="px-4 py-3">Carrera</th><th className="px-4 py-3 text-right">Proyectos</th><th className="px-4 py-3 text-right">Acciones</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {rows.map((u) => (
                 <tr key={u.id}>
                   <td className="px-4 py-3"><div className="flex items-center gap-3"><InitialsAvatar name={u.name} /><div className="min-w-0"><p className="truncate font-medium text-slate-900">{u.name}{u.id === me && <span className="ml-2 text-xs font-normal text-slate-400">(tú)</span>}</p><p className="truncate text-xs text-slate-500">{u.email}</p></div></div></td>
-                  <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${ROLE_PILL[u.role?.name || "USER"]}`}>{ROLE_LABEL[u.role?.name || "USER"]}</span></td>
+                  <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${ROLE_PILL[u.role?.name || "TEACHER"]}`}>{ROLE_LABEL[u.role?.name || "TEACHER"]}</span></td>
                   <td className="px-4 py-3 text-slate-600">{u.career?.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{u.role?.name === "USER" ? levelLabel(u.level) : "—"}</td>
                   <td className="px-4 py-3 text-right text-slate-600">{u._count?.createdProjects ?? 0}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
@@ -179,13 +172,9 @@ export default function UsersAdmin() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="u-name">Nombre completo</Label><Input id="u-name" value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="u-email">Correo</Label><Input id="u-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label htmlFor="u-role">Rol</Label>
+            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="u-role">Rol</Label>
               <select id="u-role" className={selectCls} value={form.role} onChange={(e) => set("role", e.target.value)}>
                 {Object.entries(ROLE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select></div>
-            <div className="space-y-1.5"><Label htmlFor="u-level">Nivel</Label>
-              <select id="u-level" className={selectCls} value={form.level} disabled={form.role !== "USER"} onChange={(e) => set("level", e.target.value)}>
-                {LEVELS.map((l) => <option key={l} value={l}>{levelLabel(l)}</option>)}
               </select></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="u-career">Carrera</Label>
               <select id="u-career" className={selectCls} value={form.careerId} onChange={(e) => set("careerId", e.target.value)}>
@@ -206,7 +195,7 @@ export default function UsersAdmin() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Eliminar usuario</DialogTitle>
-            <DialogDescription>Vas a eliminar a «{deleting?.name}». Sus proyectos se conservan en el sistema, pero quedarán sin responsable. Esta acción no se puede deshacer.</DialogDescription>
+            <DialogDescription>Vas a eliminar a «{deleting?.name}». Sus proyectos se conservan; los gestionará el docente asignado a su carrera y nivel. Esta acción no se puede deshacer.</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setDeleting(null)}>Cancelar</Button>

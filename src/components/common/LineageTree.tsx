@@ -1,12 +1,10 @@
 import { GitBranch } from "lucide-react"
-import { ReviewBadge } from "@/components/common/ReviewBadge"
 
 export type LineageNode = {
   id: string
   name: string
   parentId: string | null
   branchNumber: number
-  reviewStatus: string
   createdAt: string
   user?: { id: string; name: string } | null
   career?: { name: string } | null
@@ -43,7 +41,6 @@ export function LineageTree({
               {n.parentId ? `Continuación #${n.branchNumber}` : "Proyecto original"} · {n.user?.name || "Sin responsable"} · {new Date(n.createdAt).toLocaleDateString("es-ES")}
             </span>
           </span>
-          <ReviewBadge status={n.reviewStatus} />
         </button>
         </div>
         {render(n.id, depth + 1) && <ul className="mt-2 space-y-2">{render(n.id, depth + 1)}</ul>}

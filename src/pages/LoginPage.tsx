@@ -205,10 +205,7 @@ const LoginPage = () => {
         )}
 
         <p className="text-center text-sm text-slate-500">
-          ¿No tienes cuenta?{" "}
-          <Link to="/register" className="text-brand-700 hover:underline">
-            Regístrate
-          </Link>
+          ¿No tienes cuenta? Las cuentas las crea el administrador del instituto.
         </p>
 
       </div>

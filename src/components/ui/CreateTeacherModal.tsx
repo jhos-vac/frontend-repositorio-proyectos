@@ -15,15 +15,14 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay";
 import api from "@/api/axios";
+import { INSTITUTIONAL_DOMAINS, INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from "@/lib/institutional";
 
 // 1. REGEX ESTRICTA
-const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@((gmail|outlook|hotmail|yahoo|icloud|live|msn|me|zoho)\.com|(yahoo)\.es|sudamericano\.edu\.ec|.*\.(edu\.ec|gob\.ec|org\.ec|ec|edu|gob|gov))$/i;
-
 const teacherSchema = z.object({
   name: z.string().min(3, "El nombre es muy corto"),
   email: z.string()
     .email("Formato de correo inválido")
-    .regex(EMAIL_REGEX, "Correo incorrecto. (Dominio no permitido)"),
+    .refine(isInstitutionalEmail, INSTITUTIONAL_EMAIL_HINT),
   password: z.string()
     .min(6, "Mínimo 6 caracteres")
     .regex(/[A-Z]/, "Falta mayúscula")
@@ -108,8 +107,12 @@ export function CreateTeacherModal() {
         form.setError("email", { type: "manual", message: "Correo ya registrado" });
         setErrorMessage("Correo ya registrado"); // Alerta de arriba
       } 
+      else if (msgLower.includes("institucional")) {
+        form.setError("email", { type: "manual", message: msg });
+        setErrorMessage(msg);
+      }
       else if (
-        msgLower.includes("inválido") || 
+        msgLower.includes("inválido") ||
         msgLower.includes("dominio") || 
         msgLower.includes("permitido") || 
         msgLower.includes("no existe")
@@ -202,7 +205,7 @@ export function CreateTeacherModal() {
                   <FormLabel className="text-xs">Correo Institucional</FormLabel>
                   <FormControl>
                     <Input 
-                      placeholder="docente@sudamericano.edu.ec" 
+                      placeholder={`docente@${INSTITUTIONAL_DOMAINS[0]}`}
                       type="email" 
                       // Borde ROJO si hay error
                       className={`bg-white h-9 text-sm ${fieldState.error ? "border-red-500 ring-1 ring-red-500" : "border-slate-300"}`} 

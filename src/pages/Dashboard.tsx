@@ -11,8 +11,6 @@ import { ProgressBar } from "@/components/common/ProgressBar"
 import { EmptyState } from "@/components/common/EmptyState"
 import { projectProgress } from "@/lib/status"
 import { greeting, timeAgo } from "@/lib/format"
-import { useIsStudent } from "@/lib/useRole"
-import StudentHome from "@/pages/student/StudentHome"
 
 type Project = {
   id: string
@@ -230,6 +228,6 @@ function SectionHeader({ eyebrow, title, href, link }: { eyebrow: string; title:
 }
 
 /** El estudiante ve solo el resumen de sus proyectos; docentes y admin, el panel general. */
-const Dashboard = () => (useIsStudent() ? <StudentHome /> : <StaffDashboard />)
+const Dashboard = () => <StaffDashboard />
 
 export default Dashboard
