@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
-import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, Users, Link2, GitBranch, CalendarRange, GraduationCap } from "lucide-react"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, Users, Link2, GitBranch, CalendarRange, GraduationCap, School } from "lucide-react"
 import api from "@/api/axios"
 import { useLogout } from "@/lib/useLogout"
 import { useAuthStore } from "@/store/authStore"
@@ -81,7 +81,7 @@ const Sidebar = ({ open, onClose }: Props) => {
               <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Administración</p>
               <div className="space-y-1">
                 <NavItem to="/admin/usuarios" icon={Users} label="Usuarios y roles" onClick={onClose} />
-                <NavItem to="/admin/carreras" icon={GraduationCap} label="Carreras" onClick={onClose} />
+                <NavItem to="/admin/carreras" icon={School} label="Carreras" onClick={onClose} />
                 <NavItem to="/admin/asignaciones" icon={Link2} label="Docentes por nivel" onClick={onClose} />
                 <NavItem to="/admin/proyectos" icon={GitBranch} label="Gestión de proyectos" onClick={onClose} />
                 <NavItem to="/admin/periodos" icon={CalendarRange} label="Períodos académicos" onClick={onClose} />

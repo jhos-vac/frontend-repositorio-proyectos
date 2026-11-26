@@ -54,7 +54,7 @@ export default function CareersAdmin() {
     catch (e) {
       const status = (e as AxiosError).response?.status
       flash(false, status === 409
-        ? "No se eliminó: la carrera tiene usuarios o proyectos. Reasígnalos primero."
+        ? "No se eliminó: la carrera tiene usuarios, estudiantes o proyectos. Reasígnalos primero."
         : apiError(e))
       setDeleting(null)
     } finally { setBusy(false) }
@@ -123,7 +123,7 @@ export default function CareersAdmin() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Eliminar carrera</DialogTitle>
-            <DialogDescription>{`Solo se elimina "${deleting?.name ?? ""}" si no tiene usuarios ni proyectos; si los tiene, se rechaza. Las asignaciones de docentes se borran junto con ella. No se puede deshacer.`}</DialogDescription>
+            <DialogDescription>{`Solo se elimina "${deleting?.name ?? ""}" si no tiene usuarios, estudiantes ni proyectos; si los tiene, se rechaza. Las asignaciones de docentes se borran junto con ella. No se puede deshacer.`}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setDeleting(null)}>Cancelar</Button>
