@@ -41,7 +41,8 @@ import {
   Globe,
   User,
   Eye,
-  EyeOff
+  EyeOff,
+  FileSpreadsheet
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Label } from "@/components/ui/label"
@@ -64,6 +65,7 @@ import { useAuthStore } from "@/store/authStore"
 import { ProjectFilesPanel } from "@/components/projects/ProjectFilesPanel"
 import { StudentPicker, studentsError } from "@/components/projects/StudentPicker"
 import { SimilarProjectsHint } from "@/components/projects/SimilarProjectsHint"
+import { BulkProjectsDialog } from "@/components/projects/BulkProjectsDialog"
 import { LEVELS, levelLabel } from "@/lib/status"
 import { MODALITY_LABEL, apiError, type Cohort, type Modality, type ProjectStudent } from "@/lib/types"
 import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
@@ -202,6 +204,7 @@ const ProyectPage = () => {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isBulkOpen, setIsBulkOpen] = useState(false)
 
   // Sincroniza con la barra superior: ?q= busca y ?nuevo=1 abre el formulario de registro
   useEffect(() => {
@@ -857,6 +860,23 @@ const ProyectPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} type="text" placeholder="Buscar..." className="pl-10 bg-slate-50 border-slate-200 text-slate-900 focus:ring-brand-600 focus:border-brand-600" />
               </div>
+
+              {(myRole === 'TEACHER' || myRole === 'ADMIN') && (
+                <>
+                  <Button variant="outline" className="gap-2 border-brand-600 text-brand-700 hover:bg-brand-50" onClick={() => setIsBulkOpen(true)}>
+                    <FileSpreadsheet className="h-4 w-4" /> Carga masiva
+                  </Button>
+                  <BulkProjectsDialog
+                    open={isBulkOpen}
+                    onOpenChange={setIsBulkOpen}
+                    isAdmin={myRole === 'ADMIN'}
+                    onDone={(n) => {
+                      showSuccess(`Carga completada: ${n} proyecto${n === 1 ? '' : 's'} registrado${n === 1 ? '' : 's'}.`)
+                      fetchProjects()
+                    }}
+                  />
+                </>
+              )}
 
               {(
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
