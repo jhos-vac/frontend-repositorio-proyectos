@@ -19,8 +19,7 @@ export type ProjectRow = {
   name: string
   description: string
   status: string
-  reviewStatus: string
-  reviewNote?: string | null
+  modality?: Modality
   level?: number | null
   academic_period?: string | null
   careerId: string
@@ -30,7 +29,6 @@ export type ProjectRow = {
   rootId?: string | null
   branchNumber?: number
   parent?: { id: string; name: string } | null
-  reviewedBy?: { id: string; name: string } | null
   _count?: { branches: number }
   user?: { id: string; name: string; email: string } | null
   career?: Career
@@ -38,7 +36,31 @@ export type ProjectRow = {
   problems?: string | null
   summary?: string | null
   projectSkills?: { id: string; skill: { id: string; name: string } }[]
+  students?: ProjectStudent[]
 }
+
+/** BE-08: estudiante sin cuenta, administrado por el docente. */
+export type Student = {
+  id: string
+  name: string
+  email: string
+  careerId: string
+  level: number
+  group?: string | null
+  academicPeriod?: string | null
+  career?: Career
+  _count?: { projects: number }
+}
+
+export type Modality = "individual" | "grupal"
+export const MODALITY_LABEL: Record<Modality, string> = { individual: "Individual", grupal: "Grupal" }
+/** Máximo de estudiantes en un proyecto grupal (igual que en el backend). */
+export const MAX_STUDENTS = 8
+
+export type ProjectStudent = { student: Pick<Student, "id" | "name" | "email" | "level" | "group"> }
+
+/** Carrera + nivel asignados a un docente (GET /api/assignments/mine). */
+export type Cohort = { id: string; careerId: string; level: number; career: Career }
 
 export type Paged<T> = {
   data: T[]
