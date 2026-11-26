@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { useAuthStore } from "@/store/authStore"
 import { usePeriodStore } from "@/store/periodStore"
 import { ThemeToggle } from "@/components/common/ThemeToggle"
-import { useIsStudent } from "@/lib/useRole"
 
 type Period = { id: string; name: string }
 
@@ -21,7 +20,6 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const roleName = user?.role?.name
-  const isStudent = useIsStudent()
   const canCreate = !!roleName // estudiantes también registran proyectos (quedan pendientes de revisión)
 
   useEffect(() => {
@@ -43,7 +41,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     const q = query.trim()
-    const base = isStudent ? "/ciclos-pasados" : "/projects"
+    const base = "/projects"
     navigate(q ? `${base}?q=${encodeURIComponent(q)}` : base)
   }
 
@@ -63,7 +61,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={isStudent ? "Buscar en ciclos pasados…" : "Buscar proyectos, tecnologías…"}
+          placeholder="Buscar proyectos, tecnologías…"
           aria-label="Buscar proyectos"
           className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-14 text-sm outline-none transition focus:border-brand-600 focus:bg-white focus:ring-2 focus:ring-brand-600/20"
         />
@@ -73,7 +71,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
       </form>
 
       <div className="ml-auto flex items-center gap-2">
-        {!isStudent && <label className="relative hidden sm:block">
+        {<label className="relative hidden sm:block">
           <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <select
             value={period}

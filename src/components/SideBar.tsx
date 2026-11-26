@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { NavLink, useNavigate, Link } from "react-router-dom"
 import type { LucideIcon } from "lucide-react"
-import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, ClipboardCheck, Users, Link2, GitBranch, CalendarRange, History } from "lucide-react"
+import { LayoutDashboard, FolderKanban, UserRound, LogOut, X, Plus, Users, Link2, GitBranch, CalendarRange, GraduationCap } from "lucide-react"
 import api from "@/api/axios"
 import { useLogout } from "@/lib/useLogout"
 import { useAuthStore } from "@/store/authStore"
@@ -17,7 +17,6 @@ import { BulkRegisterModal } from "./ui/BulkRegisterModal"
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Administrador",
   TEACHER: "Docente",
-  USER: "Estudiante",
 }
 
 type Props = { open: boolean; onClose: () => void }
@@ -34,14 +33,13 @@ const Sidebar = ({ open, onClose }: Props) => {
   const roleName: string | undefined = user?.role?.name
   const isAdmin = roleName === "ADMIN"
   const isStaff = isAdmin || roleName === "TEACHER"
-  const isStudent = roleName === "USER"
-  const canCreate = !!roleName
+  const canCreate = isStaff
 
   useEffect(() => {
     if (!isLogged || !userId) return
     api.get(`/api/users/${userId}`).then((res) => setUser(res.data)).catch(() => {})
-    if (!isStudent) api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
-  }, [isLogged, userId, setUser, isStudent])
+    api.get("/api/projects?limit=1").then((res) => setProjectCount(res.data?.meta?.total ?? null)).catch(() => {})
+  }, [isLogged, userId, setUser])
 
   const handleLogout = useLogout()
 
@@ -72,15 +70,8 @@ const Sidebar = ({ open, onClose }: Props) => {
             <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Espacio académico</p>
             <div className="space-y-1">
               <NavItem to="/dashboard" icon={LayoutDashboard} label="Inicio" onClick={onClose} />
-              {isStudent ? (
-                <>
-                  <NavItem to="/mis-proyectos" icon={FolderKanban} label="Mis proyectos" onClick={onClose} />
-                  <NavItem to="/ciclos-pasados" icon={History} label="Ciclos pasados" onClick={onClose} />
-                </>
-              ) : (
-                <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
-              )}
-              {isStaff && <NavItem to="/revision" icon={ClipboardCheck} label="Revisión" onClick={onClose} />}
+              <NavItem to="/projects" icon={FolderKanban} label="Proyectos" count={projectCount} onClick={onClose} />
+              {isStaff && <NavItem to="/estudiantes" icon={GraduationCap} label="Estudiantes" onClick={onClose} />}
               <NavItem to="/profile" icon={UserRound} label="Mi perfil" onClick={onClose} />
             </div>
           </div>
@@ -104,7 +95,7 @@ const Sidebar = ({ open, onClose }: Props) => {
           {canCreate && (
             <div className="rounded-xl bg-white/10 p-4">
               <p className="text-sm font-semibold text-white">¿Una nueva iniciativa?</p>
-              <p className="mt-1 text-xs text-brand-200">Registra el proyecto y asigna las tecnologías.</p>
+              <p className="mt-1 text-xs text-brand-200">Registra el proyecto, sus estudiantes y las tecnologías.</p>
               <Button
                 onClick={() => { onClose(); navigate("/projects?nuevo=1") }}
                 className="mt-3 h-9 w-full gap-1.5 bg-white text-brand-900 hover:bg-blue-50"

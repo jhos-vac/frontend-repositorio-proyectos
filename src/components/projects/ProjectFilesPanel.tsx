@@ -8,10 +8,7 @@ import { apiError, selectCls } from "@/lib/types"
 
 type Doc = { id: string; kind: string; originalName: string; size: number; createdAt: string; uploadedBy?: { name: string } | null }
 type LinkRow = { id: string; type: string; label: string | null; url: string; ref: string | null; isFinal: boolean }
-type P = {
-  id: string; createdBy: string | null; reviewStatus: string; status: string
-  userProjects?: { userId: string }[]
-}
+type P = { id: string; createdBy: string | null; status: string }
 
 const KIND: Record<string, string> = { informe: "Informe", presentacion: "Presentación", otro: "Otro" }
 const TYPE: Record<string, string> = { repositorio: "Repositorio", demo: "Demo en línea", video: "Video", otro: "Otro" }
@@ -20,18 +17,19 @@ const MAX_MB = 20
 const size = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`)
 const hostOf = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, "") } catch { return u } }
 
-/** Motivo por el que el usuario no puede modificar archivos/enlaces (null = puede). Espeja la regla del servidor. */
-export function filesLockReason(p: P, userId: string | null, isAdmin: boolean): string | null {
+/**
+ * Motivo por el que el usuario no puede modificar archivos/enlaces (null = puede). Espeja la regla del
+ * servidor: ADMIN, el docente que registró el proyecto o el asignado a su carrera y nivel (canEdit),
+ * mientras el proyecto no esté finalizado.
+ */
+export function filesLockReason(p: P, canEdit: boolean, isAdmin: boolean): string | null {
   if (isAdmin) return null
-  const member = p.createdBy === userId || (p.userProjects || []).some((m) => m.userId === userId)
-  if (!member) return "Solo el equipo del proyecto puede adjuntar archivos y enlaces."
-  if (p.reviewStatus === "rejected") return "El proyecto fue rechazado: no se pueden adjuntar archivos ni enlaces."
-  if (p.reviewStatus !== "approved") return "El proyecto está en revisión: podrás adjuntar archivos cuando sea aprobado."
+  if (!canEdit) return "Solo el docente a cargo del proyecto puede adjuntar archivos y enlaces."
   if (/complet|finaliz/i.test(p.status || "")) return "El proyecto está finalizado: ya no se pueden modificar sus archivos ni enlaces."
   return null
 }
 
-export function ProjectFilesPanel({ project, userId, isAdmin }: { project: P; userId: string | null; isAdmin: boolean }) {
+export function ProjectFilesPanel({ project, canEdit, isAdmin }: { project: P; canEdit: boolean; isAdmin: boolean }) {
   const [docs, setDocs] = useState<Doc[]>([])
   const [links, setLinks] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,7 +40,7 @@ export function ProjectFilesPanel({ project, userId, isAdmin }: { project: P; us
   const [lt, setLt] = useState("repositorio"); const [lurl, setLurl] = useState(""); const [llabel, setLlabel] = useState("")
   const [lref, setLref] = useState(""); const [lfinal, setLfinal] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
-  const lock = filesLockReason(project, userId, isAdmin)
+  const lock = filesLockReason(project, canEdit, isAdmin)
 
   const load = useCallback(async () => {
     try {
