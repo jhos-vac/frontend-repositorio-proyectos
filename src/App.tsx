@@ -3,6 +3,7 @@ import LoginPage from './pages/LoginPage'
 import UserProfile from './pages/UserProfile'
 import Dashboard from './pages/Dashboard'
 import ProyectPage from './pages/ProyectPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -33,8 +34,8 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/projects" element={<ProyectPage key="list" />} />
-          <Route path="/projects/:id" element={<ProyectPage key="detail" />} />
+          <Route path="/projects" element={<ProyectPage />} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/profile" element={<UserProfile />} />
           {/* BE-08: los estudiantes no tienen cuenta; los administra el docente */}
           <Route element={<RoleRoute allow={['TEACHER', 'ADMIN']} />}>

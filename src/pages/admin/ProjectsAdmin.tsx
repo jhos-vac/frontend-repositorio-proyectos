@@ -105,7 +105,7 @@ export default function ProjectsAdmin() {
                 <div className="flex shrink-0 flex-wrap gap-1.5">
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/projects/${p.id}`)}><Eye className="size-4" /> Ver</Button>
                   {(p.parentId || !!p._count?.branches) && <Button variant="outline" size="sm" className="gap-1.5" onClick={() => openHistory(p)}><Network className="size-4" /> Historial</Button>}
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/projects/${p.id}?editar=1`)}><Pencil className="size-4" /> Editar</Button>
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate(`/projects?editar=${p.id}`)}><Pencil className="size-4" /> Editar</Button>
                   <Button variant="ghost" size="icon" aria-label={`Eliminar ${p.name}`} className="text-red-600 hover:bg-red-50" onClick={() => setDeleting(p)}><Trash2 className="size-4" /></Button>
                 </div>
               </div>
