@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react"
-import { Loader2, Pencil, Plus, Search, Trash2, Users } from "lucide-react"
+import { FileSpreadsheet, Loader2, Pencil, Plus, Search, Trash2, Users } from "lucide-react"
 import api from "@/api/axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/common/EmptyState"
+import { BulkTeachersDialog } from "@/components/users/BulkTeachersDialog"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import { ROLE_LABEL } from "@/lib/status"
 import { apiError, selectCls, type AppUser, type Career, type Paged, type Role } from "@/lib/types"
@@ -38,6 +39,7 @@ export default function UsersAdmin() {
   const [form, setForm] = useState<Form>(EMPTY)
   const [formErr, setFormErr] = useState("")
   const [deleting, setDeleting] = useState<AppUser | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const flash = (ok: boolean, text: string) => { setMsg({ ok, text }); setTimeout(() => setMsg(null), 4500) }
 
@@ -105,8 +107,18 @@ export default function UsersAdmin() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Usuarios y roles</h1>
           <p className="mt-1 text-sm text-slate-500">Cuentas de docentes y administradores. Los estudiantes se registran en «Estudiantes».</p>
         </div>
-        <Button onClick={openCreate} className="gap-1.5"><Plus className="size-4" /> Nuevo usuario</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setBulkOpen(true)} className="gap-1.5"><FileSpreadsheet className="size-4" /> Carga masiva de docentes</Button>
+          <Button onClick={openCreate} className="gap-1.5"><Plus className="size-4" /> Nuevo usuario</Button>
+        </div>
       </div>
+
+      <BulkTeachersDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        careers={careers}
+        onDone={(n) => { flash(true, `Carga completada: ${n} docente${n === 1 ? "" : "s"} registrado${n === 1 ? "" : "s"}.`); setPage(1); load() }}
+      />
 
       {msg && <div role="status" className={`rounded-lg border px-4 py-2.5 text-sm ${msg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>{msg.text}</div>}
 
