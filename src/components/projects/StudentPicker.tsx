@@ -36,7 +36,7 @@ export function StudentPicker({ careerId, level, modality, onModality, value, on
   const max = modality === "individual" ? 1 : MAX_STUDENTS
   const full = value.length >= max
   const shown = all
-    .filter((s) => !value.includes(s.id) && `${s.name} ${s.email} ${s.group || ""}`.toLowerCase().includes(q.toLowerCase()))
+    .filter((s) => !value.includes(s.id) && `${s.name} ${s.cedula || ""} ${s.email || ""} ${s.group || ""}`.toLowerCase().includes(q.toLowerCase()))
     .slice(0, 8)
 
   const pick = (id: string) => { onChange(modality === "individual" ? [id] : [...value, id]); setQ("") }
@@ -84,7 +84,7 @@ export function StudentPicker({ careerId, level, modality, onModality, value, on
             <li key={s.id}>
               <button type="button" onClick={() => pick(s.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50">
                 <InitialsAvatar name={s.name} className="size-6 text-[10px]" />
-                <span className="min-w-0 flex-1"><span className="block truncate">{s.name}</span><span className="block truncate text-xs text-slate-500">{s.email}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate">{s.name}</span><span className="block truncate text-xs text-slate-500">{[s.cedula, s.email].filter(Boolean).join(" · ")}</span></span>
                 {s.group && <span className="text-xs text-slate-500">Grupo {s.group}</span>}
               </button>
             </li>

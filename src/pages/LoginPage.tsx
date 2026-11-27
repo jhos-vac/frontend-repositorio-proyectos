@@ -195,6 +195,9 @@ const LoginPage = () => {
             {loading ? "Cargando..." : "Iniciar Sesión"}
           </Button>
         </form>
+        <p className="mt-4 text-center text-sm text-slate-500">
+          <Link to="/" className="font-medium text-brand-700 hover:underline">Ver los proyectos finalizados</Link>
+        </p>
         
         {/* Error General (Solo si no es de correo o clave) */}
         {generalError && (

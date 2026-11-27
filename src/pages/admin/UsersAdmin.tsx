@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { FileSpreadsheet, Loader2, Pencil, Plus, Search, Trash2, Users } from "lucide-react"
+import { FileSpreadsheet, KeyRound, Loader2, Pencil, Plus, Search, Trash2, Users } from "lucide-react"
 import api from "@/api/axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,10 +10,11 @@ import { BulkTeachersDialog } from "@/components/users/BulkTeachersDialog"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
 import { ROLE_LABEL } from "@/lib/status"
 import { apiError, selectCls, type AppUser, type Career, type Paged, type Role } from "@/lib/types"
+import { DEFAULT_PASSWORD } from "@/lib/password"
 import { useAuthStore } from "@/store/authStore"
 
-type Form = { name: string; email: string; role: string; careerId: string; password: string }
-const EMPTY: Form = { name: "", email: "", role: "TEACHER", careerId: "", password: "" }
+type Form = { name: string; email: string; role: string; careerId: string; reset: boolean }
+const EMPTY: Form = { name: "", email: "", role: "TEACHER", careerId: "", reset: false }
 const LIMIT = 10
 
 const ROLE_PILL: Record<string, string> = {
@@ -61,31 +62,30 @@ export default function UsersAdmin() {
   useEffect(() => { load() }, [load])
 
   const roleId = (name: string) => roles.find((r) => r.name === name)?.id
-  const set = (k: keyof Form, v: string) => setForm((f) => ({ ...f, [k]: v }))
+  const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }))
 
   const openCreate = () => { setForm({ ...EMPTY, careerId: careers[0]?.id || "" }); setFormErr(""); setEditing(null); setDialog("create") }
   const openEdit = (u: AppUser) => {
     setEditing(u); setFormErr("")
-    setForm({ name: u.name, email: u.email, role: u.role?.name || "TEACHER", careerId: u.careerId, password: "" })
+    setForm({ name: u.name, email: u.email, role: u.role?.name || "TEACHER", careerId: u.careerId, reset: false })
     setDialog("edit")
   }
 
   const save = async () => {
     setFormErr("")
     if (!form.name.trim() || !form.email.trim()) return setFormErr("Nombre y correo son obligatorios.")
-    if (dialog === "create" && !form.password) return setFormErr("Define una contraseña inicial.")
     setBusy(true)
     try {
       if (dialog === "create") {
-        const body: any = { name: form.name.trim(), email: form.email.trim(), password: form.password, careerId: form.careerId }
+        const body: any = { name: form.name.trim(), email: form.email.trim(), careerId: form.careerId }
         if (form.role === "TEACHER") await api.post("/api/users/create-teacher", body)
         else await api.post("/api/auth/register-admin", body)
-        flash(true, "Usuario creado. Deberá cambiar su contraseña al ingresar.")
+        flash(true, `Usuario creado con la contraseña inicial ${DEFAULT_PASSWORD}. Deberá cambiarla al ingresar.`)
       } else if (editing) {
         const body: any = {
           name: form.name.trim(), email: form.email.trim(), roleId: roleId(form.role), careerId: form.careerId,
         }
-        if (form.password) body.password = form.password
+        if (form.reset) body.resetPassword = true
         await api.patch(`/api/users/${editing.id}/admin`, body)
         flash(true, "Cambios guardados.")
       }
@@ -192,8 +192,17 @@ export default function UsersAdmin() {
               <select id="u-career" className={selectCls} value={form.careerId} onChange={(e) => set("careerId", e.target.value)}>
                 {careers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select></div>
-            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="u-pass">{dialog === "create" ? "Contraseña inicial" : "Nueva contraseña (opcional)"}</Label>
-              <Input id="u-pass" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set("password", e.target.value)} placeholder={dialog === "edit" ? "Déjalo vacío para no cambiarla" : "Mínimo 6, con letras, números y símbolo"} /></div>
+            {dialog === "create" ? (
+              <p className="flex gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:col-span-2">
+                <KeyRound className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <span>Contraseña inicial: <strong className="font-mono text-slate-900">{DEFAULT_PASSWORD}</strong>. Deberá cambiarla en su primer ingreso.</span>
+              </p>
+            ) : (
+              <label className="flex items-start gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 sm:col-span-2">
+                <input type="checkbox" className="mt-0.5 size-4 accent-brand-600" checked={form.reset} onChange={(e) => set("reset", e.target.checked)} />
+                <span>Restablecer la contraseña a la inicial (<span className="font-mono">{DEFAULT_PASSWORD}</span>). Se cerrarán sus sesiones y deberá cambiarla al entrar.</span>
+              </label>
+            )}
           </div>
           {formErr && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formErr}</p>}
           <DialogFooter className="gap-2">

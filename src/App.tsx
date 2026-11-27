@@ -3,6 +3,8 @@ import LoginPage from './pages/LoginPage'
 import UserProfile from './pages/UserProfile'
 import Dashboard from './pages/Dashboard'
 import ProyectPage from './pages/ProyectPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
+import PublicHome from './pages/PublicHome'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -19,8 +21,8 @@ import { AppLayout } from './components/layout/AppLayout'
 function App() {
   return (
     <Routes>
-      {/* Sin sesión, ProtectedRoute manda al login */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Página inicial pública: proyectos finalizados (solo título y descripción) */}
+      <Route path="/" element={<PublicHome />} />
 
       {/* Acceso (públicas): con sesión abierta se salta al panel. No hay registro público (RN-01) */}
       <Route element={<GuestRoute />}>
@@ -33,8 +35,8 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/projects" element={<ProyectPage key="list" />} />
-          <Route path="/projects/:id" element={<ProyectPage key="detail" />} />
+          <Route path="/projects" element={<ProyectPage />} />
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/profile" element={<UserProfile />} />
           {/* BE-08: los estudiantes no tienen cuenta; los administra el docente */}
           <Route element={<RoleRoute allow={['TEACHER', 'ADMIN']} />}>

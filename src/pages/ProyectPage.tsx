@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useParams, useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { usePeriodStore } from "@/store/periodStore"
 import { StatusBadge } from "@/components/common/StatusBadge"
 import { InitialsAvatar } from "@/components/common/InitialsAvatar"
@@ -26,7 +26,6 @@ import { Input } from "@/components/ui/input"
 import api from "@/api/axios"
 import {
   Loader2,
-  FileText,
   Code2,
   CheckCircle2Icon,
   Pencil,
@@ -62,13 +61,11 @@ import {
 import { Card } from "@/components/ui/card"
 import { LoadingOverlay } from "@/components/ui/LoadingOverlay"
 import { useAuthStore } from "@/store/authStore"
-import { ProjectFilesPanel } from "@/components/projects/ProjectFilesPanel"
 import { StudentPicker, studentsError } from "@/components/projects/StudentPicker"
 import { SimilarProjectsHint } from "@/components/projects/SimilarProjectsHint"
 import { BulkProjectsDialog } from "@/components/projects/BulkProjectsDialog"
 import { LEVELS, levelLabel } from "@/lib/status"
 import { MODALITY_LABEL, apiError, type Cohort, type Modality, type ProjectStudent } from "@/lib/types"
-import { LineageTree, type LineageNode } from "@/components/common/LineageTree"
 import { GitBranch } from "lucide-react"
 
 const skillSchema = z.object({
@@ -82,8 +79,9 @@ const projectSchema = z.object({
   summary: z.string().optional(),
   deliverables: z.string().optional(),
   link: z.string().optional(),
-  cycle: z.string().min(1, "Selecciona un ciclo"),
-  academic_period: z.string().min(1, "Selecciona un período"),
+  // Opcional: el nivel (1 a 4) ya identifica el ciclo; los proyectos de la carga masiva no lo traen
+  cycle: z.string().optional(),
+  academic_period: z.string().optional(), // el docente no lo elige: se usa el período activo
   careerId: z.string().min(1, "Selecciona una carrera"),
   level: z.string().min(1, "Selecciona el nivel"),
   objectives: z.string().min(1, "Debes ingresar al menos un objetivo"),
@@ -138,7 +136,6 @@ type PageMeta = { total: number; totalPages: number; hasNextPage: boolean; hasPr
 const LIMIT = 20
 
 const ProyectPage = () => {
-  const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedPeriod = usePeriodStore((s) => s.period)
@@ -152,7 +149,9 @@ const ProyectPage = () => {
   const [careers, setCareers] = useState<Career[]>([])
   const [user, setUser] = useState<UserType | null>(null)
   const [role, setRole] = useState<Role[]>([])
-  const [periods, setPeriods] = useState<{id: string, name: string}[]>([])
+  const [periods, setPeriods] = useState<{id: string, name: string, active?: boolean}[]>([])
+  // Período en curso: solo lo activa y lo cambia el administrador
+  const activePeriod = periods.find((p) => p.active)?.name || ""
 
   const userId = localStorage.getItem('id')
 
@@ -182,12 +181,18 @@ const ProyectPage = () => {
 
   const [filterStatus, setFilterStatus] = useState("Todo");
   const [branchTarget, setBranchTarget] = useState<Project | null>(null)
-  const [statusTarget, setStatusTarget] = useState<Project | null>(null)
   const [branchName, setBranchName] = useState("")
   const [branchPeriod, setBranchPeriod] = useState("")
   const [branchLevel, setBranchLevel] = useState("")
-  const [lineage, setLineage] = useState<LineageNode[]>([])
-  const [filterCareer, setFilterCareer] = useState("");
+  // El docente ve los proyectos de todas las carreras; el primer filtro es su propia carrera
+  const myCareerId = (currentUser as any)?.careerId as string | undefined
+  const [filterCareer, setFilterCareer] = useState(() => (myRole === 'TEACHER' && myCareerId) || "");
+  const careerDefaulted = useRef(myRole === 'TEACHER' && !!myCareerId)
+  useEffect(() => {
+    if (careerDefaulted.current || myRole !== 'TEACHER' || !myCareerId) return
+    careerDefaulted.current = true
+    setFilterCareer(myCareerId)
+  }, [myRole, myCareerId])
   const [filterStatusUserProjects, setFilterStatusUserProjects] = useState("Todo")
 
   // COMENTADO: Quitamos el estado pendiente del filtro de opciones
@@ -200,8 +205,8 @@ const ProyectPage = () => {
 
   const statusUserProjects = ["Todo", "Mis proyectos"]
 
-  const [viewProject, setViewProject] = useState<Project | null>(null)
-  const [isViewOpen, setIsViewOpen] = useState(false)
+  // FE-06: el detalle vive en /projects/:id; tras editar o continuar desde ahí se vuelve al detalle
+  const [returnTo, setReturnTo] = useState<string | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -349,25 +354,30 @@ const ProyectPage = () => {
     fetchUser()
   }, [])
 
-  // /projects/:id: el proyecto puede no estar en la página visible, se pide al servidor
+  // FE-06: desde el detalle se llega con ?editar=<id> (abre la edición) o ?continuar=<id> (abre la continuación)
   useEffect(() => {
-    if (!id) return
-    let cancelled = false
-    api.get(`/api/projects/${id}`).then((res) => {
-      if (cancelled) return
-      const found: Project = res.data
-      if (searchParams.get("editar") === "1") {
-        // Llegada desde el panel de administración: abre directo la edición
-        loadProjectData(found)
-        const next = new URLSearchParams(searchParams); next.delete("editar")
-        setSearchParams(next, { replace: true })
-      } else {
-        setViewProject(found);
-        setIsViewOpen(true);
-      }
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [id]);
+    const editId = searchParams.get("editar")
+    const contId = searchParams.get("continuar")
+    const target = editId || contId
+    if (!target) return
+    if (contId && periods.length === 0) return // el diálogo necesita los períodos
+    // Se quita el parámetro de la URL recién cuando llega el proyecto (si se quitara antes, el efecto
+    // se volvería a ejecutar y descartaría la respuesta)
+    const clear = () => { const next = new URLSearchParams(searchParams); next.delete("editar"); next.delete("continuar"); setSearchParams(next, { replace: true }) }
+    api.get(`/api/projects/${target}`).then((res) => {
+      if (editId) loadProjectData(res.data)
+      else openBranchDialog(res.data)
+      setReturnTo(target)
+      clear()
+    }).catch(() => { clear(); showError("No se encontró el proyecto.") })
+  }, [searchParams, periods.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Al cerrar la edición o la continuación abiertas desde el detalle, se vuelve al detalle. */
+  const backToDetail = (projectId?: string) => {
+    const target = projectId || returnTo
+    setReturnTo(null)
+    if (target) navigate(`/projects/${target}`)
+  }
 
   const roleName = user && role.length > 0 ? role.find(r => r.id === user.roleId)?.name : "";
   const isAdmin = roleName?.toLowerCase().includes("admin");
@@ -458,8 +468,8 @@ const ProyectPage = () => {
         name: values.name,
         description: values.description,
         summary: values.summary,
-        cycle: values.cycle,
-        academic_period: values.academic_period,
+        cycle: values.cycle || undefined,
+        academic_period: myRole === 'ADMIN' ? values.academic_period || undefined : undefined,
         careerId: values.careerId,
         level: Number(values.level),
         modality,
@@ -517,8 +527,8 @@ const ProyectPage = () => {
         name: values.name,
         description: values.description,
         summary: values.summary,
-        cycle: values.cycle,
-        academic_period: values.academic_period,
+        cycle: values.cycle || undefined,
+        academic_period: myRole === 'ADMIN' ? values.academic_period || undefined : undefined,
         careerId: values.careerId,
         level: Number(values.level),
         modality,
@@ -557,6 +567,7 @@ const ProyectPage = () => {
 
       setIsEditOpen(false)
       setLoading(false);
+      if (returnTo) { backToDetail(); return }
       setTimeout(() => showSuccess("Proyecto actualizado correctamente"), 300);
     } catch (error) {
       console.error(error);
@@ -565,10 +576,17 @@ const ProyectPage = () => {
     }
   };
 
+  // El docente recibe sus asignaciones después: completa el nivel de la continuación cuando llegan
+  useEffect(() => {
+    if (!branchTarget || branchLevel) return
+    const allowed = formLevels(branchTarget.careerId)
+    if (allowed.length) setBranchLevel(String(branchTarget.level && allowed.includes(branchTarget.level) ? branchTarget.level : allowed[0]))
+  }, [cohorts, branchTarget]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const openBranchDialog = (project: Project) => {
     setBranchTarget(project)
     setBranchName(`${project.name} (continuación)`)
-    setBranchPeriod(periods[0]?.name || "")
+    setBranchPeriod(activePeriod)
     const allowed = formLevels(project.careerId)
     setBranchLevel(String(project.level && allowed.includes(project.level) ? project.level : (allowed[0] ?? "")))
   }
@@ -577,11 +595,12 @@ const ProyectPage = () => {
     if (!branchTarget) return
     setLoading(true)
     try {
-      await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined, academic_period: branchPeriod || undefined, level: branchLevel ? Number(branchLevel) : undefined })
+      const res = await api.post(`/api/projects/${branchTarget.id}/branch`, { name: branchName.trim() || undefined, academic_period: branchPeriod || undefined, level: branchLevel ? Number(branchLevel) : undefined })
       setBranchTarget(null)
-      setIsViewOpen(false)
-      await fetchProjects()
+      setReturnTo(null)
       setLoading(false)
+      if (res.data?.id) { navigate(`/projects/${res.data.id}`); return }
+      await fetchProjects()
       setTimeout(() => showSuccess("Continuación creada: edítala para asignar sus estudiantes"), 300)
     } catch (error: any) {
       setLoading(false)
@@ -589,44 +608,6 @@ const ProyectPage = () => {
       showError(error?.response?.data?.message || "No se pudo crear la continuación.")
     }
   }
-
-  // Marcar como completado o reabrir: lo decide el docente a cargo (o el admin); el servidor valida
-  const canSetStatus = canModify(viewProject)
-  const isCompleted = (p: Project | null) => /complet|finaliz/i.test(p?.status || '')
-  const handleSetStatus = async () => {
-    if (!statusTarget) return
-    const status = isCompleted(statusTarget) ? 'en progreso' : 'completado'
-    setLoading(true)
-    try {
-      const res = await api.patch(`/api/projects/${statusTarget.id}/status`, { status })
-      setStatusTarget(null)
-      setViewProject(res.data)
-      await fetchProjects()
-      setLoading(false)
-      setTimeout(() => showSuccess(status === 'completado' ? "Proyecto marcado como completado" : "Proyecto reabierto"), 300)
-    } catch (error: any) {
-      setLoading(false)
-      setStatusTarget(null)
-      showError(error?.response?.data?.message || "No se pudo cambiar el estado del proyecto.")
-    }
-  }
-
-  const openProject = (projectId: string) => {
-    const found = projects.find((p) => p.id === projectId)
-    if (found) { setViewProject(found); setIsViewOpen(true); return }
-    // Fuera de la página visible: se pide al servidor
-    api.get(`/api/projects/${projectId}`).then((res) => { setViewProject(res.data); setIsViewOpen(true) }).catch(() => {})
-  }
-
-  // Historial de continuidad del proyecto que se está viendo
-  useEffect(() => {
-    setLineage([])
-    if (!isViewOpen || !viewProject) return
-    if (!viewProject.parentId && !(viewProject._count?.branches)) return
-    api.get(`/api/projects/${viewProject.id}/lineage`)
-      .then((res) => setLineage(res.data?.nodes || []))
-      .catch(() => setLineage([]))
-  }, [isViewOpen, viewProject?.id])
 
   const handleDeleteProyect = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation()
@@ -655,17 +636,18 @@ const ProyectPage = () => {
     const { link, textItems } = parseDeliverables(project.deliverables || []);
 
     editProjectForm.reset({
-      name: project.name,
-      description: project.description,
+      name: project.name ?? "",
+      description: project.description ?? "",
       summary: project.summary || "",
       deliverables: textItems.join("\n") || "",
       link: link || "",
-      cycle: project.cycle,
-      academic_period: project.academic_period,
+      // Campos opcionales: el servidor los devuelve como null y el formulario espera texto
+      cycle: project.cycle ?? "",
+      academic_period: project.academic_period ?? "",
       careerId: project.careerId,
       level: project.level ? String(project.level) : "",
       objectives: project.objectives?.join("\n") || "",
-      status: project.status
+      status: project.status ?? ""
     })
     setIsEditOpen(true)
   };
@@ -776,7 +758,7 @@ const ProyectPage = () => {
       <FormField control={form.control} name="cycle" render={({ field }) => (
         <FormItem>
           <div className="flex items-center justify-between h-8 mb-1">
-             <FormLabel className="text-slate-400">Ciclo</FormLabel>
+             <FormLabel className="text-slate-400">Ciclo (opcional)</FormLabel>
           </div>
           <FormControl>
             <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field}>
@@ -796,13 +778,17 @@ const ProyectPage = () => {
           <div className="flex items-center justify-between h-8 mb-1">
             <FormLabel className="text-slate-400">Período</FormLabel>
           </div>
-          <FormControl>
-            <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field}>
-              <option value="">Seleccionar...</option>
-              {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
-            </select>
-          </FormControl>
-          {periods.length === 0 && <p className="text-xs text-amber-600">Aún no hay períodos. El administrador debe registrarlos en «Períodos académicos».</p>}
+          {myRole === 'ADMIN' ? (
+            <FormControl>
+              <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field} value={field.value ?? ""}>
+                <option value="">{activePeriod ? `Período activo (${activePeriod})` : "Seleccionar..."}</option>
+                {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+              </select>
+            </FormControl>
+          ) : (
+            <p className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">{field.value || activePeriod || "—"}</p>
+          )}
+          {!activePeriod && !field.value && <p className="text-xs text-amber-600">No hay un período activo. El administrador debe activarlo en «Períodos académicos».</p>}
           <FormMessage className="text-red-600 text-xs" />
         </FormItem>
       )} />
@@ -1000,7 +986,7 @@ const ProyectPage = () => {
                         // COMENTADO: Quitamos el fondo rojo para pendientes
                         // ORIGINAL: className={`... ${p.status === 'pendiente' ? 'bg-red-50 hover:bg-red-50' : 'hover:bg-slate-100' }`}
                         return (
-                          <TableRow key={p.id} className="border-slate-200 transition-colors group align-top cursor-pointer hover:bg-slate-100" onClick={() => { setViewProject(p); setIsViewOpen(true); }}>
+                          <TableRow key={p.id} className="border-slate-200 transition-colors group align-top cursor-pointer hover:bg-slate-100" onClick={() => navigate(`/projects/${p.id}`)}>
                             <TableCell className="py-4 align-top">
                               <div className="flex items-start gap-3 min-w-[280px]">
                                 <InitialsAvatar name={p.user?.name} className="mt-0.5" />
@@ -1069,14 +1055,14 @@ const ProyectPage = () => {
         )}
       </main>
 
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+      <Dialog open={isEditOpen} onOpenChange={(o) => { setIsEditOpen(o); if (!o) backToDetail() }}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-50 border-slate-200 text-slate-900 z-[90]">
           <DialogHeader><DialogTitle className="text-xl font-bold text-brand-700">Editar Proyecto</DialogTitle></DialogHeader>
           <Form {...editProjectForm}>
             <form onSubmit={editProjectForm.handleSubmit(handleEditProyect)}>
                 {renderFormFields(editProjectForm)}
                 <DialogFooter>
-                    <Button type="button" variant="ghost" className="hover:bg-slate-100" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
+                    <Button type="button" variant="ghost" className="hover:bg-slate-100" onClick={() => { setIsEditOpen(false); backToDetail() }}>Cancelar</Button>
                     <Button type="submit" disabled={loading}>Guardar Cambios</Button>
                 </DialogFooter>
             </form>
@@ -1089,52 +1075,7 @@ const ProyectPage = () => {
       <Dialog open={!!skillToDelete} onOpenChange={(open) => !open && setSkillToDelete(null)}>
         <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 z-[80] max-w-sm"><DialogHeader><DialogTitle className="flex items-center gap-2 text-red-600"><AlertTriangle className="w-5 h-5" /> Eliminar</DialogTitle><DialogDescription className="text-slate-500 mt-2">¿Eliminar <span className="text-slate-900 font-bold">"{skillToDelete?.name}"</span>?</DialogDescription></DialogHeader><DialogFooter className="mt-4 gap-2 sm:gap-0"><Button variant="ghost" onClick={() => setSkillToDelete(null)}>Cancelar</Button><Button className="bg-red-600 hover:bg-red-700" onClick={handleDeleteSkill}>Eliminar</Button></DialogFooter></DialogContent>
       </Dialog>
-      <Dialog open={isViewOpen} onOpenChange={(open) => { setIsViewOpen(open); if (!open) { navigate('/projects'); } }}>
-        <DialogContent className="w-[95vw] md:w-full md:max-w-4xl bg-white border-slate-200 text-slate-900 p-0 z-[60]">
-          <div className="max-h-[85vh] overflow-y-auto p-4 md:p-6 space-y-4 md:space-y-6 break-words">
-            <DialogHeader><DialogTitle className="text-2xl font-bold text-brand-700 flex items-center gap-2"><FileText className="w-6 h-6" /> {viewProject?.name}</DialogTitle></DialogHeader>
-            {viewProject && (
-              <div className="space-y-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  {viewProject.level ? <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">Nivel {viewProject.level}</span> : null}
-                  {viewProject.parent && (
-                    <button type="button" onClick={() => openProject(viewProject.parent!.id)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline">
-                      <GitBranch className="w-3 h-3" /> Continuación de {viewProject.parent.name}
-                    </button>
-                  )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg"><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Carrera</h4><p className="text-sm">{careers.find(c => c.id === viewProject.careerId)?.name || "N/A"}</p></div><div className="md:col-span-2"><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estudiantes · {MODALITY_LABEL[viewProject.modality || 'grupal']}</h4><p className="text-sm text-slate-600">{viewProject.students?.length ? viewProject.students.map((m) => m.student.name).join(", ") : "Sin estudiantes asignados"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Docente</h4><p className="text-sm text-slate-600">{viewProject.user?.name || "Sin responsable"}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Período & Ciclo</h4><p className="text-sm">{viewProject.academic_period} - {viewProject.cycle}</p></div><div><h4 className="text-xs font-bold text-brand-600 uppercase mb-1">Estado</h4><StatusBadge status={viewProject.status} /></div></div>
-                <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Problemática</h3><div className="text-slate-600 leading-relaxed whitespace-pre-wrap break-words bg-slate-50 p-3 rounded-md border border-slate-200">{viewProject.description}</div></div>
-                {viewProject.objectives?.length > 0 && (<div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Objetivos</h3><div className="pl-5 space-y-2 text-slate-600 break-words">{viewProject.objectives.map((obj, i) => <div key={i}>{obj}</div>)}</div></div>)}
-                <div><h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1">Tecnologías</h3><div className="flex flex-wrap gap-2">{getProjectSkillsDisplay(viewProject).map(skill => (<Badge key={skill.id} className="bg-slate-100 hover:bg-slate-200 text-slate-900">{skill.name}</Badge>))}</div></div>
-              </div>
-            )}
-            {viewProject && (
-              <div className="mt-4"><ProjectFilesPanel project={viewProject as any} canEdit={canModify(viewProject)} isAdmin={!!isAdmin} /></div>
-            )}
-            {lineage.length > 1 && viewProject && (
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2 border-b border-slate-200 pb-1 flex items-center gap-2"><GitBranch className="w-5 h-5 text-brand-600" /> Historial de continuidad</h3>
-                <LineageTree nodes={lineage} currentId={viewProject.id} onOpen={(pid) => { openProject(pid) }} />
-              </div>
-            )}
-            <DialogFooter className="gap-2">
-              {canSetStatus && (
-                <Button variant="outline" className="gap-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50" onClick={() => setStatusTarget(viewProject)}>
-                  <CheckCircle2Icon className="w-4 h-4" /> {isCompleted(viewProject) ? "Reabrir proyecto" : "Marcar como completado"}
-                </Button>
-              )}
-              {viewProject && formLevels(viewProject.careerId).length > 0 && (
-                <Button variant="outline" className="gap-2 border-brand-600 text-brand-700 hover:bg-brand-50" onClick={() => openBranchDialog(viewProject)}>
-                  <GitBranch className="w-4 h-4" /> Continuar proyecto
-                </Button>
-              )}
-              <Button onClick={() => setIsViewOpen(false)} className="bg-brand-700 hover:bg-brand-800 text-white">Cerrar</Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!branchTarget} onOpenChange={(open) => !open && setBranchTarget(null)}>
+      <Dialog open={!!branchTarget} onOpenChange={(open) => { if (!open) { setBranchTarget(null); backToDetail() } }}>
         <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 z-[100] max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-brand-700"><GitBranch className="w-5 h-5" /> Continuar proyecto</DialogTitle>
@@ -1146,33 +1087,21 @@ const ProyectPage = () => {
             <Label htmlFor="branch-name">Nombre de la continuación</Label>
             <Input id="branch-name" value={branchName} onChange={(e) => setBranchName(e.target.value)} className="bg-white border-slate-300" />
             <Label htmlFor="branch-period" className="mt-3 block">Período académico de la continuación</Label>
-            <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
-              {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
-            </select>
+            {myRole === 'ADMIN' ? (
+              <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
+                {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}{p.active ? " (activo)" : ""}</option>))}
+              </select>
+            ) : (
+              <p id="branch-period" className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">{activePeriod || "No hay un período activo: pídelo al administrador."}</p>
+            )}
             <Label htmlFor="branch-level" className="mt-3 block">Nivel de la continuación</Label>
             <select id="branch-level" value={branchLevel} onChange={(e) => setBranchLevel(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
               {(branchTarget ? formLevels(branchTarget.careerId) : []).map((l) => (<option key={l} value={l}>{levelLabel(l)}</option>))}
             </select>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setBranchTarget(null)}>Cancelar</Button>
+            <Button variant="ghost" onClick={() => { setBranchTarget(null); backToDetail() }}>Cancelar</Button>
             <Button onClick={handleBranch} disabled={loading || !branchName.trim()} className="gap-2"><GitBranch className="w-4 h-4" /> Crear continuación</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={!!statusTarget} onOpenChange={(open) => !open && setStatusTarget(null)}>
-        <DialogContent className="bg-slate-50 border-slate-200 text-slate-900 z-[100] max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-brand-700"><CheckCircle2Icon className="w-5 h-5" /> {isCompleted(statusTarget) ? "Reabrir proyecto" : "Marcar como completado"}</DialogTitle>
-            <DialogDescription className="text-slate-500">
-              {isCompleted(statusTarget)
-                ? <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> volverá a estar en progreso y se podrán modificar otra vez sus archivos y enlaces.</>
-                : <>El proyecto <span className="font-semibold text-slate-900">{statusTarget?.name}</span> quedará como completado: ya no se podrán modificar sus archivos ni enlaces.</>}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setStatusTarget(null)}>Cancelar</Button>
-            <Button onClick={handleSetStatus} disabled={loading} className="gap-2"><CheckCircle2Icon className="w-4 h-4" /> Confirmar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
