@@ -43,7 +43,8 @@ export type ProjectRow = {
 export type Student = {
   id: string
   name: string
-  email: string
+  cedula?: string | null // identificación del SGA
+  email?: string | null // opcional: el SGA no lo trae
   careerId: string
   level: number
   group?: string | null

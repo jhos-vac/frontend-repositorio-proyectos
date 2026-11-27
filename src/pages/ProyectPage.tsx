@@ -81,7 +81,7 @@ const projectSchema = z.object({
   link: z.string().optional(),
   // Opcional: el nivel (1 a 4) ya identifica el ciclo; los proyectos de la carga masiva no lo traen
   cycle: z.string().optional(),
-  academic_period: z.string().min(1, "Selecciona un período"),
+  academic_period: z.string().optional(), // el docente no lo elige: se usa el período activo
   careerId: z.string().min(1, "Selecciona una carrera"),
   level: z.string().min(1, "Selecciona el nivel"),
   objectives: z.string().min(1, "Debes ingresar al menos un objetivo"),
@@ -149,7 +149,9 @@ const ProyectPage = () => {
   const [careers, setCareers] = useState<Career[]>([])
   const [user, setUser] = useState<UserType | null>(null)
   const [role, setRole] = useState<Role[]>([])
-  const [periods, setPeriods] = useState<{id: string, name: string}[]>([])
+  const [periods, setPeriods] = useState<{id: string, name: string, active?: boolean}[]>([])
+  // Período en curso: solo lo activa y lo cambia el administrador
+  const activePeriod = periods.find((p) => p.active)?.name || ""
 
   const userId = localStorage.getItem('id')
 
@@ -182,7 +184,15 @@ const ProyectPage = () => {
   const [branchName, setBranchName] = useState("")
   const [branchPeriod, setBranchPeriod] = useState("")
   const [branchLevel, setBranchLevel] = useState("")
-  const [filterCareer, setFilterCareer] = useState("");
+  // El docente ve los proyectos de todas las carreras; el primer filtro es su propia carrera
+  const myCareerId = (currentUser as any)?.careerId as string | undefined
+  const [filterCareer, setFilterCareer] = useState(() => (myRole === 'TEACHER' && myCareerId) || "");
+  const careerDefaulted = useRef(myRole === 'TEACHER' && !!myCareerId)
+  useEffect(() => {
+    if (careerDefaulted.current || myRole !== 'TEACHER' || !myCareerId) return
+    careerDefaulted.current = true
+    setFilterCareer(myCareerId)
+  }, [myRole, myCareerId])
   const [filterStatusUserProjects, setFilterStatusUserProjects] = useState("Todo")
 
   // COMENTADO: Quitamos el estado pendiente del filtro de opciones
@@ -459,7 +469,7 @@ const ProyectPage = () => {
         description: values.description,
         summary: values.summary,
         cycle: values.cycle || undefined,
-        academic_period: values.academic_period,
+        academic_period: myRole === 'ADMIN' ? values.academic_period || undefined : undefined,
         careerId: values.careerId,
         level: Number(values.level),
         modality,
@@ -518,7 +528,7 @@ const ProyectPage = () => {
         description: values.description,
         summary: values.summary,
         cycle: values.cycle || undefined,
-        academic_period: values.academic_period,
+        academic_period: myRole === 'ADMIN' ? values.academic_period || undefined : undefined,
         careerId: values.careerId,
         level: Number(values.level),
         modality,
@@ -576,7 +586,7 @@ const ProyectPage = () => {
   const openBranchDialog = (project: Project) => {
     setBranchTarget(project)
     setBranchName(`${project.name} (continuación)`)
-    setBranchPeriod(periods[0]?.name || "")
+    setBranchPeriod(activePeriod)
     const allowed = formLevels(project.careerId)
     setBranchLevel(String(project.level && allowed.includes(project.level) ? project.level : (allowed[0] ?? "")))
   }
@@ -768,13 +778,17 @@ const ProyectPage = () => {
           <div className="flex items-center justify-between h-8 mb-1">
             <FormLabel className="text-slate-400">Período</FormLabel>
           </div>
-          <FormControl>
-            <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field}>
-              <option value="">Seleccionar...</option>
-              {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
-            </select>
-          </FormControl>
-          {periods.length === 0 && <p className="text-xs text-amber-600">Aún no hay períodos. El administrador debe registrarlos en «Períodos académicos».</p>}
+          {myRole === 'ADMIN' ? (
+            <FormControl>
+              <select className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3" {...field} value={field.value ?? ""}>
+                <option value="">{activePeriod ? `Período activo (${activePeriod})` : "Seleccionar..."}</option>
+                {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+              </select>
+            </FormControl>
+          ) : (
+            <p className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">{field.value || activePeriod || "—"}</p>
+          )}
+          {!activePeriod && !field.value && <p className="text-xs text-amber-600">No hay un período activo. El administrador debe activarlo en «Períodos académicos».</p>}
           <FormMessage className="text-red-600 text-xs" />
         </FormItem>
       )} />
@@ -1073,9 +1087,13 @@ const ProyectPage = () => {
             <Label htmlFor="branch-name">Nombre de la continuación</Label>
             <Input id="branch-name" value={branchName} onChange={(e) => setBranchName(e.target.value)} className="bg-white border-slate-300" />
             <Label htmlFor="branch-period" className="mt-3 block">Período académico de la continuación</Label>
-            <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
-              {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
-            </select>
+            {myRole === 'ADMIN' ? (
+              <select id="branch-period" value={branchPeriod} onChange={(e) => setBranchPeriod(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
+                {periods.map((p) => (<option key={p.id} value={p.name}>{p.name}{p.active ? " (activo)" : ""}</option>))}
+              </select>
+            ) : (
+              <p id="branch-period" className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">{activePeriod || "No hay un período activo: pídelo al administrador."}</p>
+            )}
             <Label htmlFor="branch-level" className="mt-3 block">Nivel de la continuación</Label>
             <select id="branch-level" value={branchLevel} onChange={(e) => setBranchLevel(e.target.value)} className="w-full h-9 rounded-md bg-white border border-slate-300 text-sm text-slate-900 px-3">
               {(branchTarget ? formLevels(branchTarget.careerId) : []).map((l) => (<option key={l} value={l}>{levelLabel(l)}</option>))}

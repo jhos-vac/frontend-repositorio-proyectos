@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Download, GraduationCap, Loader2, Pencil, Plus, Search, Trash2, UploadCloud } from "lucide-react"
+import { CheckCircle2, FileSpreadsheet, GraduationCap, Loader2, Pencil, Plus, Search, Trash2, UploadCloud } from "lucide-react"
 import * as XLSX from "xlsx"
 import api from "@/api/axios"
 import { Button } from "@/components/ui/button"
@@ -12,13 +12,11 @@ import { LEVELS, levelLabel } from "@/lib/status"
 import { INSTITUTIONAL_EMAIL_HINT, isInstitutionalEmail } from "@/lib/institutional"
 import { apiError, selectCls, type Career, type Cohort, type Paged, type Student } from "@/lib/types"
 import { useRole } from "@/lib/useRole"
+import { parseSga, type SgaCourse } from "@/lib/sga"
 
-type Form = { name: string; email: string; careerId: string; level: string; group: string; academicPeriod: string }
-const EMPTY: Form = { name: "", email: "", careerId: "", level: "", group: "", academicPeriod: "" }
+type Form = { name: string; cedula: string; email: string; careerId: string; level: string; group: string; academicPeriod: string }
+const EMPTY: Form = { name: "", cedula: "", email: "", careerId: "", level: "", group: "", academicPeriod: "" }
 const LIMIT = 20
-
-/** Normaliza un encabezado de Excel: minúsculas y sin tildes ("Período" -> "periodo"). */
-const key = (k: string) => k.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase()
 
 /**
  * FE-16 (BE-08): los estudiantes no tienen cuenta; el docente los registra y administra
@@ -30,7 +28,7 @@ export default function StudentsAdmin() {
   const [meta, setMeta] = useState<Paged<Student>["meta"] | null>(null)
   const [careers, setCareers] = useState<Career[]>([])
   const [cohorts, setCohorts] = useState<Cohort[] | null>(null) // null = cargando
-  const [periods, setPeriods] = useState<{ id: string; name: string }[]>([])
+  const [periods, setPeriods] = useState<{ id: string; name: string; active?: boolean }[]>([])
   const [page, setPage] = useState(1)
   const [fCareer, setFCareer] = useState(""); const [fLevel, setFLevel] = useState(""); const [fGroup, setFGroup] = useState("")
   const [search, setSearch] = useState(""); const [q, setQ] = useState("")
@@ -44,6 +42,9 @@ export default function StudentsAdmin() {
   const [deleting, setDeleting] = useState<Student | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkErrors, setBulkErrors] = useState<string[]>([])
+  const [sga, setSga] = useState<SgaCourse[] | null>(null) // vista previa del archivo del SGA
+  // El período lo activa y lo cambia solo el administrador; los estudiantes nuevos quedan en el activo
+  const activePeriod = periods.find((p) => p.active)?.name || ""
   const fileRef = useRef<HTMLInputElement>(null)
 
   const flash = (ok: boolean, text: string) => { setMsg({ ok, text }); setTimeout(() => setMsg(null), 5000) }
@@ -87,23 +88,26 @@ export default function StudentsAdmin() {
 
   const openCreate = () => {
     const c = careerOptions[0]?.id || ""
-    setForm({ ...EMPTY, careerId: c, level: String(levelsFor(c)[0] ?? ""), academicPeriod: periods[0]?.name || "" })
+    setForm({ ...EMPTY, careerId: c, level: String(levelsFor(c)[0] ?? ""), academicPeriod: isAdmin ? activePeriod : "" })
     setFormErr(""); setEditing(null); setDialog("create")
   }
   const openEdit = (s: Student) => {
     setEditing(s); setFormErr("")
-    setForm({ name: s.name, email: s.email, careerId: s.careerId, level: String(s.level), group: s.group || "", academicPeriod: s.academicPeriod || "" })
+    setForm({ name: s.name, cedula: s.cedula || "", email: s.email || "", careerId: s.careerId, level: String(s.level), group: s.group || "", academicPeriod: s.academicPeriod || "" })
     setDialog("edit")
   }
 
   const save = async () => {
     setFormErr("")
-    if (!form.name.trim() || !form.email.trim()) return setFormErr("Nombre y correo son obligatorios.")
-    if (!isInstitutionalEmail(form.email.trim())) return setFormErr(INSTITUTIONAL_EMAIL_HINT)
+    if (!form.name.trim()) return setFormErr("El nombre es obligatorio.")
+    if (!form.cedula.trim() && !form.email.trim()) return setFormErr("Indica la cédula (o el correo institucional).")
+    if (form.cedula.trim() && !/^\d{10}$/.test(form.cedula.trim())) return setFormErr("La cédula debe tener 10 dígitos.")
+    if (form.email.trim() && !isInstitutionalEmail(form.email.trim())) return setFormErr(INSTITUTIONAL_EMAIL_HINT)
     if (!form.careerId || !form.level) return setFormErr("Elige la carrera y el nivel.")
     const body = {
-      name: form.name.trim(), email: form.email.trim(), careerId: form.careerId, level: Number(form.level),
-      group: form.group.trim() || undefined, academicPeriod: form.academicPeriod || undefined,
+      name: form.name.trim(), cedula: form.cedula.trim() || undefined, email: form.email.trim() || undefined,
+      careerId: form.careerId, level: Number(form.level), group: form.group.trim() || undefined,
+      academicPeriod: isAdmin ? form.academicPeriod || undefined : undefined,
     }
     setBusy(true)
     try {
@@ -120,42 +124,49 @@ export default function StudentsAdmin() {
     catch (e) { flash(false, apiError(e)); setDeleting(null) } finally { setBusy(false) }
   }
 
-  // ------------------------------------------------------------ carga masiva
-  const downloadTemplate = () => {
-    const c = careerOptions[0]
-    const ws = XLSX.utils.json_to_sheet([{ nombre: "Ana Torres", correo: "ana.torres@sudamericano.edu.ec", carrera: c?.name || "", nivel: levelsFor(c?.id || "")[0] ?? 1, grupo: "A", periodo: periods[0]?.name || "" }])
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Estudiantes")
-    XLSX.writeFile(wb, "plantilla-estudiantes.xlsx")
+  // ------------------------------------------------------------ carga desde el SGA
+  const openBulk = () => { setBulkErrors([]); setSga(null); setBulkOpen(true) }
+
+  /** Lee el reporte del SGA y muestra una vista previa (carrera, curso, nivel y estudiantes) antes de guardar. */
+  const readFile = async (file?: File) => {
+    if (!file) return
+    setBulkErrors([]); setSga(null)
+    try {
+      const courses = parseSga(XLSX.read(await file.arrayBuffer()), careers)
+      if (!courses.length) throw new Error("El archivo no parece un reporte del SGA (no tiene la línea «CARRERA:» ni la columna CEDULA).")
+      const errs = courses.flatMap((c) => c.errors.map((e) => (courses.length > 1 ? `Hoja «${c.sheet}»: ${e}` : e)))
+      if (!isAdmin) {
+        for (const c of courses) {
+          if (c.career && c.level && !cohorts?.some((x) => x.careerId === c.career!.id && x.level === c.level)) {
+            errs.push(`${c.career.name}, ${levelLabel(c.level)}: no está entre tus carreras y niveles asignados.`)
+          }
+        }
+      }
+      if (errs.length) { setBulkErrors(errs); return }
+      setSga(courses)
+    } catch (e) { setBulkErrors([(e as Error).message || "No se pudo leer el archivo."]) }
+    finally { if (fileRef.current) fileRef.current.value = "" }
   }
 
-  const uploadFile = async (file?: File) => {
-    if (!file) return
+  const saveSga = async () => {
+    if (!sga) return
+    const students = sga.flatMap((c) => c.students.map((st) => ({
+      name: st.name, cedula: st.cedula, careerId: c.career!.id, level: c.level!, group: c.course || undefined,
+    })))
     setBulkErrors([]); setBusy(true)
     try {
-      const wb = XLSX.read(await file.arrayBuffer())
-      const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: "" })
-      if (!raw.length) throw new Error("El archivo está vacío.")
-      const errs: string[] = []
-      const students = raw.map((r, i) => {
-        const row: Record<string, string> = {}
-        Object.entries(r).forEach(([k, v]) => { row[key(k)] = String(v ?? "").trim() })
-        const careerName = row.carrera || row.career || ""
-        const career = careers.find((c) => c.name.toLowerCase() === careerName.toLowerCase())
-        if (!career) errs.push(`Fila ${i + 1}: la carrera «${careerName}» no existe (escribe el nombre exacto).`)
-        return {
-          name: row.nombre || row.name || "", email: row.correo || row.email || "",
-          careerId: career?.id || "", level: Number(row.nivel || row.level),
-          group: row.grupo || row.group || undefined, academicPeriod: row.periodo || row.period || undefined,
-        }
-      })
-      if (errs.length) { setBulkErrors(errs); return }
-      const res = await api.post("/api/students/bulk", { students })
-      setBulkOpen(false); flash(true, `Carga completada: ${res.data?.created ?? students.length} estudiantes registrados.`); await load()
+      // Si suben otra materia del mismo curso, los que ya están registrados se omiten
+      const res = await api.post("/api/students/bulk", { students, skipExisting: true })
+      const created = res.data?.created ?? 0
+      const skipped = res.data?.skipped ?? 0
+      setBulkOpen(false); setSga(null)
+      flash(true, `Carga completada: ${created} registrado${created === 1 ? "" : "s"}${skipped ? `; ${skipped} ya estaba${skipped === 1 ? "" : "n"} registrado${skipped === 1 ? "" : "s"}` : ""}.`)
+      await load()
     } catch (e) {
       const err = e as { message?: string; response?: { data?: { message?: string | string[] } } }
       const m = err.response?.data?.message
-      setBulkErrors(Array.isArray(m) ? m.map((l) => l.replace(/^students\.(\d+)\./, (_: string, n: string) => `Fila ${Number(n) + 1}: `)) : [m || err.message || "No se pudo procesar el archivo."])
-    } finally { setBusy(false); if (fileRef.current) fileRef.current.value = "" }
+      setBulkErrors(Array.isArray(m) ? m.map((l) => l.replace(/^students\.(\d+)\./, (_: string, n: string) => `Fila ${Number(n) + 1}: `)) : [m || err.message || "No se pudo guardar."])
+    } finally { setBusy(false) }
   }
 
   const noCohorts = cohorts !== null && cohorts.length === 0
@@ -170,7 +181,7 @@ export default function StudentsAdmin() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setBulkErrors([]); setBulkOpen(true) }} disabled={noCohorts} className="gap-1.5"><UploadCloud className="size-4" /> Carga masiva</Button>
+          <Button variant="outline" onClick={openBulk} disabled={noCohorts} className="gap-1.5"><UploadCloud className="size-4" /> Cargar desde el SGA</Button>
           <Button onClick={openCreate} disabled={noCohorts || cohorts === null} className="gap-1.5"><Plus className="size-4" /> Nuevo estudiante</Button>
         </div>
       </div>
@@ -185,7 +196,7 @@ export default function StudentsAdmin() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nombre o correo" className="pl-9" aria-label="Buscar" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar nombre, cédula o correo" className="pl-9" aria-label="Buscar" />
         </div>
         <select className={selectCls} value={fCareer} onChange={(e) => { setFCareer(e.target.value); setPage(1) }} aria-label="Carrera">
           <option value="">Todas las carreras</option>{careerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -199,7 +210,7 @@ export default function StudentsAdmin() {
       {loading ? (
         <div className="flex h-40 items-center justify-center text-slate-500"><Loader2 className="mr-2 size-5 animate-spin" /> Cargando…</div>
       ) : rows.length === 0 ? (
-        <EmptyState icon={GraduationCap} title="Sin estudiantes" description="Registra estudiantes uno por uno o con la carga masiva." />
+        <EmptyState icon={GraduationCap} title="Sin estudiantes" description="Regístralos uno por uno o sube el reporte del SGA." />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-sm">
@@ -209,7 +220,7 @@ export default function StudentsAdmin() {
             <tbody className="divide-y divide-slate-200">
               {rows.map((s) => (
                 <tr key={s.id}>
-                  <td className="px-4 py-3"><div className="flex items-center gap-3"><InitialsAvatar name={s.name} /><div className="min-w-0"><p className="truncate font-medium text-slate-900">{s.name}</p><p className="truncate text-xs text-slate-500">{s.email}</p></div></div></td>
+                  <td className="px-4 py-3"><div className="flex items-center gap-3"><InitialsAvatar name={s.name} /><div className="min-w-0"><p className="truncate font-medium text-slate-900">{s.name}</p><p className="truncate text-xs text-slate-500">{[s.cedula, s.email].filter(Boolean).join(" · ")}</p></div></div></td>
                   <td className="px-4 py-3 text-slate-600">{s.career?.name}</td>
                   <td className="px-4 py-3 text-slate-600">{levelLabel(s.level)}</td>
                   <td className="px-4 py-3 text-slate-600">{s.group || "—"}</td>
@@ -246,7 +257,8 @@ export default function StudentsAdmin() {
           </DialogHeader>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="s-name">Nombre completo</Label><Input id="s-name" value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
-            <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="s-email">Correo institucional</Label><Input id="s-email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label htmlFor="s-cedula">Cédula</Label><Input id="s-cedula" inputMode="numeric" maxLength={10} value={form.cedula} onChange={(e) => set("cedula", e.target.value.replace(/\D/g, ""))} /></div>
+            <div className="space-y-1.5"><Label htmlFor="s-email">Correo institucional</Label><Input id="s-email" type="email" placeholder="Opcional" value={form.email} onChange={(e) => set("email", e.target.value)} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="s-career">Carrera</Label>
               <select id="s-career" className={selectCls} value={form.careerId} onChange={(e) => set("careerId", e.target.value)}>
                 {careerOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -257,9 +269,15 @@ export default function StudentsAdmin() {
               </select></div>
             <div className="space-y-1.5"><Label htmlFor="s-group">Grupo</Label><Input id="s-group" value={form.group} maxLength={30} placeholder="Opcional (p. ej. A)" onChange={(e) => set("group", e.target.value)} /></div>
             <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="s-period">Período académico</Label>
-              <select id="s-period" className={selectCls} value={form.academicPeriod} onChange={(e) => set("academicPeriod", e.target.value)}>
-                <option value="">Sin período</option>{periods.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-              </select></div>
+              {isAdmin ? (
+                <select id="s-period" className={selectCls} value={form.academicPeriod} onChange={(e) => set("academicPeriod", e.target.value)}>
+                  <option value="">Sin período</option>{periods.map((p) => <option key={p.id} value={p.name}>{p.name}{p.active ? " (activo)" : ""}</option>)}
+                </select>
+              ) : (
+                <p id="s-period" className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700">
+                  {dialog === "edit" ? form.academicPeriod || "—" : activePeriod || "No hay un período activo"}
+                </p>
+              )}</div>
           </div>
           {formErr && <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{formErr}</p>}
           <DialogFooter className="gap-2">
@@ -269,23 +287,45 @@ export default function StudentsAdmin() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={bulkOpen} onOpenChange={setBulkOpen}>
+      <Dialog open={bulkOpen} onOpenChange={(o) => { setBulkOpen(o); if (!o) setSga(null) }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Carga masiva de estudiantes</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><FileSpreadsheet className="size-5 text-brand-700" /> Cargar estudiantes desde el SGA</DialogTitle>
             <DialogDescription>
-              Excel con las columnas <b>nombre, correo, carrera, nivel</b> y, opcionales, <b>grupo, periodo</b>. {INSTITUTIONAL_EMAIL_HINT} Se registran todos o ninguno.
+              Sube tal cual el reporte de <b>evaluaciones por materia</b> que descargas del SGA. Se toman la carrera, el curso, el nivel y la cédula y el nombre de cada estudiante; las notas no se guardan.
+              {activePeriod ? ` Quedan en el período activo (${activePeriod}).` : ""}
             </DialogDescription>
           </DialogHeader>
-          <Button variant="outline" size="sm" className="w-fit gap-1.5" onClick={downloadTemplate}><Download className="size-4" /> Descargar plantilla</Button>
-          <label htmlFor="s-bulk" className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center hover:border-brand-600">
-            {busy ? <Loader2 className="mb-2 size-10 animate-spin text-brand-600" /> : <UploadCloud className="mb-2 size-10 text-slate-500" />}
-            <span className="text-sm font-semibold text-slate-800">{busy ? "Procesando…" : "Subir archivo (.xlsx, .xls)"}</span>
-          </label>
-          <input ref={fileRef} id="s-bulk" type="file" accept=".xlsx,.xls" className="hidden" disabled={busy} onChange={(e) => uploadFile(e.target.files?.[0])} />
+          {sga ? (
+            <div className="space-y-3">
+              {sga.map((c) => (
+                <div key={c.sheet} className="rounded-lg border border-slate-200 p-3 text-sm">
+                  <p className="font-semibold text-slate-900">{c.career?.name} · {c.level ? levelLabel(c.level) : ""}</p>
+                  <p className="text-xs text-slate-500">Curso {c.course}{c.modality ? ` · ${c.modality.toLowerCase()}` : ""}{c.subject ? ` · ${c.subject.toLowerCase()}` : ""}</p>
+                  <p className="mt-2 flex items-center gap-1.5 text-slate-700"><CheckCircle2 className="size-4 text-emerald-600" /> {c.students.length} estudiante{c.students.length === 1 ? "" : "s"}</p>
+                  <ul className="mt-1 max-h-40 overflow-y-auto text-xs text-slate-600">
+                    {c.students.map((st) => <li key={st.cedula} className="truncate">{st.cedula} · {st.name}</li>)}
+                  </ul>
+                </div>
+              ))}
+              <p className="text-xs text-slate-500">Los que ya estén registrados con la misma cédula se omiten.</p>
+              <DialogFooter className="gap-2">
+                <Button variant="ghost" onClick={() => setSga(null)} disabled={busy}>Elegir otro archivo</Button>
+                <Button onClick={saveSga} disabled={busy}>{busy ? "Guardando…" : "Registrar estudiantes"}</Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <>
+              <label htmlFor="s-bulk" className="flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed border-slate-300 bg-white p-8 text-center hover:border-brand-600">
+                <UploadCloud className="mb-2 size-10 text-slate-500" />
+                <span className="text-sm font-semibold text-slate-800">Subir reporte del SGA (.xlsx, .xls)</span>
+              </label>
+              <input ref={fileRef} id="s-bulk" type="file" accept=".xlsx,.xls" className="hidden" disabled={busy} onChange={(e) => readFile(e.target.files?.[0])} />
+            </>
+          )}
           {bulkErrors.length > 0 && (
             <div role="alert" className="max-h-56 overflow-y-auto rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              <p className="mb-1 font-semibold">No se registró ningún estudiante. Corrige el archivo:</p>
+              <p className="mb-1 font-semibold">No se registró ningún estudiante. Revisa el archivo:</p>
               <ul className="list-disc space-y-0.5 pl-4">{bulkErrors.map((e, i) => <li key={i}>{e}</li>)}</ul>
             </div>
           )}

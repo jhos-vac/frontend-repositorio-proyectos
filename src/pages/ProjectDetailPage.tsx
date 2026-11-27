@@ -181,7 +181,7 @@ export default function ProjectDetailPage() {
                 {p.students.map(({ student: s }) => (
                   <li key={s.id} className="flex items-center gap-2">
                     <InitialsAvatar name={s.name} className="size-7 text-[10px]" />
-                    <span className="min-w-0"><span className="block truncate text-sm text-slate-800">{s.name}</span><span className="block truncate text-xs text-slate-500">{s.email}</span></span>
+                    <span className="min-w-0"><span className="block truncate text-sm text-slate-800">{s.name}</span><span className="block truncate text-xs text-slate-500">{s.email || s.group || ""}</span></span>
                   </li>
                 ))}
               </ul>

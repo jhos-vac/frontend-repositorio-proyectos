@@ -4,6 +4,7 @@ import UserProfile from './pages/UserProfile'
 import Dashboard from './pages/Dashboard'
 import ProyectPage from './pages/ProyectPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import PublicHome from './pages/PublicHome'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import { ProtectedRoute } from './components/layout/ProtectedRoute'
@@ -20,8 +21,8 @@ import { AppLayout } from './components/layout/AppLayout'
 function App() {
   return (
     <Routes>
-      {/* Sin sesión, ProtectedRoute manda al login */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Página inicial pública: proyectos finalizados (solo título y descripción) */}
+      <Route path="/" element={<PublicHome />} />
 
       {/* Acceso (públicas): con sesión abierta se salta al panel. No hay registro público (RN-01) */}
       <Route element={<GuestRoute />}>

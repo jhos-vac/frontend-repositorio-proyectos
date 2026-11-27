@@ -14,18 +14,18 @@ const list = (v: string) => v.split(/[,;\n]+/).map((x) => x.trim()).filter(Boole
 /** Objetivos y entregables: uno por línea o separados por punto y coma (pueden llevar comas). */
 const items = (v: string) => v.split(/[;\n]+/).map((x) => x.trim()).filter(Boolean)
 
-const COLUMNS = ["nombre", "descripcion", "carrera", "nivel", "periodo", "modalidad", "estudiantes", "resumen", "problema", "objetivos", "entregables"] as const
+const COLUMNS = ["nombre", "descripcion", "carrera", "nivel", "modalidad", "estudiantes", "resumen", "problema", "objetivos", "entregables"] as const
 
 /**
  * BE-11 / FE-18: el docente descarga una plantilla Excel, la llena con sus proyectos
- * (y los correos de los estudiantes de cada uno) y la sube. Todo o nada: si una fila
+ * (y la cédula o el correo de los estudiantes de cada uno). Se registran en el período activo. y la sube. Todo o nada: si una fila
  * tiene un error no se registra ningún proyecto y se listan los errores por fila.
  */
 export function BulkProjectsDialog({ open, onOpenChange, isAdmin, onDone }: {
   open: boolean; onOpenChange: (o: boolean) => void; isAdmin: boolean; onDone: (created: number) => void
 }) {
   const [careers, setCareers] = useState<Career[]>([])
-  const [periods, setPeriods] = useState<{ id: string; name: string }[]>([])
+  const [active, setActive] = useState("")
   const [cohorts, setCohorts] = useState<Cohort[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
@@ -35,7 +35,7 @@ export function BulkProjectsDialog({ open, onOpenChange, isAdmin, onDone }: {
     if (!open) return
     setErrors([])
     api.get("/api/careers?limit=1000").then((r) => setCareers(Array.isArray(r.data) ? r.data : r.data.data || [])).catch(() => {})
-    api.get("/api/period").then((r) => setPeriods(r.data || [])).catch(() => {})
+    api.get("/api/period/active").then((r) => setActive(r.data?.name || "")).catch(() => {})
     if (!isAdmin) api.get<Cohort[]>("/api/assignments/mine").then((r) => setCohorts(r.data)).catch(() => setCohorts([]))
   }, [open, isAdmin])
 
@@ -50,27 +50,25 @@ export function BulkProjectsDialog({ open, onOpenChange, isAdmin, onDone }: {
     const example = {
       nombre: "Sistema de inventario para la cafetería",
       descripcion: "Aplicación web para registrar entradas y salidas de productos.",
-      carrera: first?.career.name || "", nivel: first?.level ?? 1, periodo: periods[0]?.name || "",
+      carrera: first?.career.name || "", nivel: first?.level ?? 1,
       modalidad: "grupal",
-      estudiantes: "ana.torres@sudamericano.edu.ec, luis.mora@sudamericano.edu.ec",
+      estudiantes: "0102030405, 0106070809",
       resumen: "", problema: "", objetivos: "Registrar productos; Generar reportes", entregables: "Informe; Presentación",
     }
     const ws = XLSX.utils.json_to_sheet([example], { header: [...COLUMNS] })
     ws["!cols"] = COLUMNS.map((c) => ({ wch: c === "descripcion" || c === "estudiantes" ? 45 : c === "nombre" ? 35 : 16 }))
     const help = [
       ["Cómo llenar la plantilla"],
-      ["Una fila por proyecto. Columnas obligatorias: nombre, descripcion, carrera, nivel, periodo, modalidad y estudiantes."],
+      ["Una fila por proyecto. Columnas obligatorias: nombre, descripcion, carrera, nivel, modalidad y estudiantes."],
+      [`Todos los proyectos se registran en el período activo${active ? ` (${active})` : ""}; solo el administrador lo cambia.`],
       ["modalidad: individual (exactamente 1 estudiante) o grupal (de 2 a " + MAX_STUDENTS + " estudiantes)."],
-      ["estudiantes: correos institucionales separados por coma. Deben estar registrados en Estudiantes, en la misma carrera y nivel."],
+      ["estudiantes: cédulas (o correos institucionales) separadas por coma. Deben estar registrados en Estudiantes, en la misma carrera y nivel."],
       ["objetivos y entregables (opcionales): separados por punto y coma."],
       ["Si una fila tiene un error, no se registra ningún proyecto: corrige y vuelve a subir el archivo."],
       [],
       ["Carreras y niveles en los que puedes registrar", ""],
       ["carrera", "nivel"],
       ...allowed.map((a) => [a.career.name, a.level]),
-      [],
-      ["Períodos académicos"],
-      ...periods.map((p) => [p.name]),
     ]
     const ws2 = XLSX.utils.aoa_to_sheet(help)
     ws2["!cols"] = [{ wch: 60 }, { wch: 10 }]
@@ -95,7 +93,7 @@ export function BulkProjectsDialog({ open, onOpenChange, isAdmin, onDone }: {
           if (!career) errs.push(`Fila ${i + 1}: la carrera «${row.carrera}» no existe (copia el nombre de la hoja Instrucciones).`)
           return {
             name: row.nombre || "", description: row.descripcion || "",
-            careerId: career?.id || "", level: Number(row.nivel), academic_period: row.periodo || "",
+            careerId: career?.id || "", level: Number(row.nivel), academic_period: isAdmin && row.periodo ? row.periodo : undefined,
             modality: norm(row.modalidad || ""), studentEmails: list(row.estudiantes || "").map((e) => e.toLowerCase()),
             summary: row.resumen || undefined, problems: row.problema || undefined,
             objectives: row.objetivos ? items(row.objetivos) : undefined,
@@ -124,7 +122,7 @@ export function BulkProjectsDialog({ open, onOpenChange, isAdmin, onDone }: {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><FileSpreadsheet className="size-5 text-brand-700" /> Carga masiva de proyectos</DialogTitle>
           <DialogDescription>
-            Descarga la plantilla, escribe un proyecto por fila con los correos de sus estudiantes y súbela.
+            Descarga la plantilla, escribe un proyecto por fila con las cédulas de sus estudiantes y súbela. Se registran en el período activo{active ? ` (${active})` : ""}.
             Si alguna fila tiene un error no se registra nada y te mostramos qué corregir.
           </DialogDescription>
         </DialogHeader>
