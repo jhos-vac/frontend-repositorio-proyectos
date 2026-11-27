@@ -11,8 +11,6 @@ import {
   DialogDescription, DialogHeader, DialogFooter, DialogTitle,
 } from "./ui/dialog"
 import { Button } from "@/components/ui/button"
-import { CreateTeacherModal } from "./ui/CreateTeacherModal"
-import { BulkRegisterModal } from "./ui/BulkRegisterModal"
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Administrador",
@@ -85,10 +83,6 @@ const Sidebar = ({ open, onClose }: Props) => {
                 <NavItem to="/admin/asignaciones" icon={Link2} label="Docentes por nivel" onClick={onClose} />
                 <NavItem to="/admin/proyectos" icon={GitBranch} label="Gestión de proyectos" onClick={onClose} />
                 <NavItem to="/admin/periodos" icon={CalendarRange} label="Períodos académicos" onClick={onClose} />
-              </div>
-              <div className="mt-1 space-y-1" onClick={onClose}>
-                <CreateTeacherModal />
-                <BulkRegisterModal />
               </div>
             </div>
           )}
